@@ -54,13 +54,13 @@ ignoreDocs = forever $ do
     case p of
         Just d@(EventBeginElement n _) | nameLocalName n == "documentation" -> do
             leftover d
-            void $ ignoreTree ((== "documentation") . nameLocalName)
+            void $ ignoreTree (matching $ (== "documentation") . nameLocalName)
         Just x -> yield x
         Nothing -> return ()
 
 parseWSDL :: MonadThrow m => ConduitM Event o (ReaderT ParseState m) WSDL
 parseWSDL = (ignoreDocs =$) $ force "Missing WSDL" $ tag
-    (\ n -> if nameLocalName n == "definitions" then Just n else Nothing)
+    (matching $ (== "definitions") . nameLocalName)
     (\ n -> do
         tns <- (>>= parseURI . T.unpack) <$> attr "targetNamespace"
         docname <- (textToName <$>) <$> attr "name"
@@ -81,9 +81,10 @@ parseTypes = tagNS "types" ignoreAttrs
         ss <- many parseSchema
         return $ WSDLTypes ss [])
 
+-- ignoreAllTreesContent -> ignoreAnyTreeContent
 parseSchema :: MonadThrow m => ConduitM Event o m (Maybe Schema)
-parseSchema = tagPredicate ((== "schema") . nameLocalName) ignoreAttrs
-    (\ _ -> many ignoreAllTreesContent >> return Schema)
+parseSchema = tag (matching $ (== "schema") . nameLocalName) (const ignoreAttrs)
+    (\ _ -> many ignoreAnyTreeContent >> return Schema)
 
 parseMessage :: Parser (Maybe WSDLMessage)
 parseMessage = tagNS "message" (requireAttr "name")
@@ -158,7 +159,7 @@ parseCFaultMessage = tagNS "output" (requireAttr "name")
     (\ n -> ConcreteFaultMessage n <$> many parseXElement)
 
 parseXElement :: MonadThrow m => ConduitM Event o m (Maybe Node)
-parseXElement = tag (\ n -> if isNothing (namePrefix n) then Nothing else Just n)
+parseXElement = tag (matching $ isNothing . namePrefix)
     (\ n -> (,) n <$> manyA (optionalAttrRaw Just))
     (\ (name, attrs) -> return $ NodeElement $ Element name attrs [])
     where
@@ -215,4 +216,4 @@ tagNS :: (MonadReader ParseState m, MonadThrow m)
       -> ConduitM Event o m (Maybe b)
 tagNS t a p = do
     ns <- asks psDocumentNamespace
-    tagPredicate (\ n -> nameLocalName n == t && nameNamespace n == ns) a p
+    tag (matching (\ n -> nameLocalName n == t && nameNamespace n == ns)) (const a) p
