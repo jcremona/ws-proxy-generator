@@ -54,7 +54,7 @@ ignoreDocs = forever $ do
     case p of
         Just d@(EventBeginElement n _) | nameLocalName n == "documentation" -> do
             leftover d
-            void $ ignoreTree (matching $ (== "documentation") . nameLocalName)
+            void $ ignoreTreeContent (matching $ (== "documentation") . nameLocalName)
         Just x -> yield x
         Nothing -> return ()
 
@@ -159,7 +159,7 @@ parseCFaultMessage = tagNS "output" (requireAttr "name")
     (\ n -> ConcreteFaultMessage n <$> many parseXElement)
 
 parseXElement :: MonadThrow m => ConduitM Event o m (Maybe Node)
-parseXElement = tag (matching $ isNothing . namePrefix)
+parseXElement = tag (matching $ isJust . namePrefix)
     (\ n -> (,) n <$> manyA (optionalAttrRaw Just))
     (\ (name, attrs) -> return $ NodeElement $ Element name attrs [])
     where
