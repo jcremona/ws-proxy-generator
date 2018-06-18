@@ -5,24 +5,32 @@
    xmlns:tns="http://www.examples.com/wsdl/HelloService.wsdl"
    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 
-   <types>
+  <!-- <types>
      <schema>
        <import namespace="http://schemas.xmlsoap.org/soap/encoding/"/>
      </schema>
-   </types>
+   </types> -->
  
    <message name="SayHelloRequest">
       <part name="firstName" type="xsd:string"/>
    </message>
 	
+   <message name="SayHelloRequest2">
+      <part name="firstNam" type="xsd:int"/>
+   </message>
+
    <message name="SayHelloResponse">
       <part name="greeting" type="xsd:string"/>
    </message>
 
    <portType name="Hello_PortType">
       <operation name="sayHello">
-         <input message="tns:SayHelloRequest"/>
-         <output message="tns:SayHelloResponse"/>
+         <input name="a" message="tns:SayHelloRequest"/>
+         <output name="b" message="tns:SayHelloResponse"/>
+      </operation>
+      <operation name="sayHello">
+         <input name="c" message="tns:SayHelloRequest2"/>
+         <output name="d" message="tns:SayHelloResponse"/>
       </operation>
    </portType>
 
@@ -31,18 +39,38 @@
          transport="http://schemas.xmlsoap.org/soap/http"/>
       <operation name="sayHello">
          <soap:operation soapAction="sayHello"/>
-         <input>
+         <input name="a">
             <soap:body
                encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
-               namespace="urn:examples:helloservice"
-               use="encoded"/>
+			   
+              
+               />
          </input>
 		
-         <output>
+         <output name="b">
+            <soap:body
+               encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
+               
+               
+               />
+         </output>
+      </operation>
+      <operation name="sayHello">
+         <soap:operation soapAction="sayHello"/>
+         <input name="c">
+            <soap:body
+               encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
+				namespace="urn:examples:helloservice"
+               
+               />
+         </input>
+		
+         <output name="d">
             <soap:body
                encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
                namespace="urn:examples:helloservice"
-               use="encoded"/>
+               
+               />
          </output>
       </operation>
    </binding>

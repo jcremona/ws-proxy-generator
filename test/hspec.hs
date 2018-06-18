@@ -11,9 +11,18 @@ import Network.URI
 import Test.Hspec
 import Text.XML.WSDL.Parser
 import Text.XML.WSDL.Types
+---------------------------
+import Model.WSDL2Model
+import Model.ProxyModel
+import Control.Monad.Reader
 
 parsedWsdl :: Either SomeException WSDL
-parsedWsdl = parseLBS $ fromStrict $(embedFile "tests/hello.wsdl")
+parsedWsdl = parseLBS $ fromStrict $(embedFile "/home/jcremona/ws-proxy-generator/test/hello.wsdl")
+
+libi :: [Interface]
+libi = case parsedWsdl of
+           Right wsdl -> runReader interface_ wsdl
+           _ -> []
 
 main :: IO ()
 main = forM_ parsedWsdl $ \ wsdl -> hspec $ do

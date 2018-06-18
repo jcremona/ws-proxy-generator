@@ -1,24 +1,37 @@
-module Model.Proxy where
+module Model.ProxyModel where
 
+import Data.Text      (Text)
+import Data.XML.Types
 
 data LanguageAbstraction = LanguageAbstraction 
-                         { functions    :: [Function]
-                         , enumerations :: [Enumeration]
-                         , lists        :: [List]
-                         , dataTypes    :: [DataType]
+                         { interfaces       :: [Interface]
+                         , enumerations     :: [Enumeration]
+                         , lists            :: [List] -- Arrays (maxOccurs=unbounded)
+                         , dataTypes        :: [DataType]
+                         , protocolMetadata :: Metadata
                          }
 
+data Interface = Interface
+               { interfaceName :: Text
+               , functions     :: [Function]
+               } deriving Show
+
 data Function = Function
-              { functionName :: String
-              , returnType   :: String -- FIXME ver como representar la jerarquia HWSType
+              { functionName :: Text
+              , params       :: Params
+              , returnType   :: Params 
               , soapAction   :: String
-              , parameters   :: [Parameter]
-              }
+              } deriving Show
+
+data Params = Params
+            { wrapperName :: Text
+            , parameters :: [Parameter]
+            } deriving Show
 
 data Parameter = Parameter
-               { parameterName :: String
-               , ttype         :: String -- FIXME ver como representar la jerarquia HWSType
-               }
+               { parameterName :: Name
+               , ttype         :: WSType 
+               } deriving Show
 
 data Enumeration = Enumeration 
                  { name    :: String
@@ -27,6 +40,30 @@ data Enumeration = Enumeration
 
 data EnumMembers = EnumMembers -- FIXME no me queda claro que tiene que contener EnumMembers
 
+data Metadata = Metadata
+
 data List = List -- FIXME ver como representar la jerarquia HWSType
 
 data DataType = DataType
+
+data FunctionIdentifier = FunctionIdentifier
+                        { funName :: Text
+                        , inputName :: Maybe Text
+                        , outputName :: Maybe Text
+                        }
+
+data WSType = WSPrimitiveType 
+            { primitiveType  :: PrimitiveType }
+            | WSDataType
+            { dataTypeName 	 :: String
+            , hasParameters  :: Bool }
+            | WSEnumType
+            { enumName       :: String }
+            | WSListType
+            { listTypeName   :: String
+            , listParameters :: [Parameter] }
+            | WSPreType
+            { preTypeName    :: String } deriving Show
+
+data PrimitiveType = WSInt | WSDouble | WSLong | WSString | WSChar | WSFloat | WSVoid | WSBoolean deriving (Enum, Show)
+
