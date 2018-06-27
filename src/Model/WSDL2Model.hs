@@ -36,28 +36,25 @@ type Error = String
 --binds :: Reader WSDL Function
 --binds = do b <- asks bindings
            
-           
 
---funs fs = do ps <- asks portTypes
---             mapM absOps (wsdlPortTypeOperations ps)
-
-findInputParam :: [Params] -> InputMessage -> Params
+-- Agregar un Maybe Text junto con el Params devuelto
+findInputParam :: [Params] -> InputMessage -> NamedMsgs
 findInputParam ps input = case find (paramsSearch $ (nameLocalName . inputMessageType) input) ps of
                               Nothing -> error "input"
-                              Just p -> p
+                              Just p -> NamedMsgs (inputMessageName input) p
 
-findOutputParam :: [Params] -> OutputMessage -> Params
+findOutputParam :: [Params] -> OutputMessage -> NamedMsgs
 findOutputParam ps output = case find (paramsSearch $ (nameLocalName . outputMessageType) output) ps of
                               Nothing -> error "output"
-                              Just p -> p
+                              Just p -> NamedMsgs (outputMessageName output) p
 
-voidType :: Params
-voidType = Params (pack "") [Parameter (Name (pack "") Nothing Nothing) (WSPrimitiveType WSVoid)]
+voidType :: NamedMsgs
+voidType = NamedMsgs Nothing $ Params (pack "") [Parameter (Name (pack "") Nothing Nothing) (WSPrimitiveType WSVoid)]
 
 absOps :: [Params] -> AbstractOperation -> Function
 absOps ps (AbstractOneWayOperation name input order) = Function name (findInputParam ps input) voidType ""
-absOps ps (AbstractRequestResponseOperation name input output faults order) = Function name (findInputParam ps input) (findOutputParam ps output) ""                                                            
-absOps ps (AbstractSolicitResponseOperation name output input faults order) = Function name (findInputParam ps input) (findOutputParam ps output) ""
+absOps ps (AbstractRequestResponseOperation name input output faults order) = Function name (findInputParam ps input) (findOutputParam ps output) ""
+absOps ps (AbstractSolicitResponseOperation name output input faults order) = Function name (findInputParam ps input) (findOutputParam ps output) "" --FIXME
 absOps ps (AbstractNotificationOperation name output order) = Function name voidType (findOutputParam ps output) ""
                                                           
 
@@ -73,10 +70,20 @@ interface_ = do pts <- asks portTypes
 oper :: [Params] -> WSDLPortType -> Reader WSDL Interface
 oper params portType = return $ Interface (wsdlPortTypeName portType) (map (absOps params) (wsdlPortTypeOperations portType))
 
---binding :: WSDLBinding -> ()
---binding b = do bs <- asks wsdlBindingOperations
---               fs <- mapM concreteOp (wsdlBindingOperations bs)              
---               ffs <- funs fs 
+--binding :: WSDLBinding -> Reader WSDL [FunctionIdentifier]
+--binding b = do is <- interface_
+  --             map is (wsdlBindingOperations b) 
+
+concOps :: [Function] -> ConcreteOperation -> ProtocolBinding
+concOps is op = ProtocolBinding (cOperationName op) (findFunc is op)
+
+findFunc :: [Function] -> ConcreteOperation -> Function
+findFunc fs op = case find (funcSearch op) fs of
+                    Nothing -> error "funcs"
+                    Just f -> f
+
+funcSearch :: ConcreteOperation -> Function -> Bool
+funcSearch operation f = cOperationName operation == (functionName f) && concreteInputName operation == (messageName . params $ f) && concreteOutputName operation == (messageName . returnType $ f) 
 
 concreteOp :: ConcreteOperation -> FunctionIdentifier
 concreteOp operation = FunctionIdentifier (cOperationName operation) (concreteInputName operation) (concreteOutputName operation)
@@ -88,14 +95,6 @@ concreteInputName operation = do inp <- cOperationInput operation
 concreteOutputName :: ConcreteOperation -> Maybe Text
 concreteOutputName operation = do out <- cOperationOutput operation
                                   cOutputMessageName out
-
-
---concreteInput :: ConcreteInputMessage -> Maybe ()
---concreteInput inp = do 
-
-
--- TODO guardar todos los types en el entorno
--- TODO guardar todos los PARAMETERS en el entorno
 
 
 parts :: WSDLMessagePart -> Parameter

@@ -18,10 +18,20 @@ data Interface = Interface
 
 data Function = Function
               { functionName :: Text
-              , params       :: Params
-              , returnType   :: Params 
+              , params       :: NamedMsgs
+              , returnType   :: NamedMsgs 
               , soapAction   :: String
               } deriving Show
+
+data NamedMsgs = NamedMsgs
+               { messageName :: Maybe Text
+               , messageType :: Params
+               } deriving Show
+
+data ProtocolBinding = ProtocolBinding
+                     { bindingName :: Text
+                     , pFunction :: Function
+                     }
 
 data Params = Params
             { wrapperName :: Text
