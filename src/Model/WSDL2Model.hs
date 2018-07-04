@@ -82,6 +82,18 @@ findFunc fs op = case find (funcSearch op) fs of
                     Nothing -> error "funcs"
                     Just f -> f
 
+--type de wsdl binding
+-- interface <---> wsdlbinding
+bb :: 
+bb = do bs <- asks bindings
+        
+
+iss :: WSDLBinding -> [Interface] -> Mybo
+iss b is = 
+------------------ TODO
+ifaceSearch :: Interface -> WSDLBinding -> Bool
+ifaceSearch is b = wsdlBindingType b
+
 funcSearch :: ConcreteOperation -> Function -> Bool
 funcSearch operation f = cOperationName operation == (functionName f) && concreteInputName operation == (messageName . params $ f) && concreteOutputName operation == (messageName . returnType $ f) 
 
