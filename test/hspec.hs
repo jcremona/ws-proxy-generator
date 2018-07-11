@@ -19,9 +19,9 @@ import Control.Monad.Reader
 parsedWsdl :: Either SomeException WSDL
 parsedWsdl = parseLBS $ fromStrict $(embedFile "/home/jcremona/ws-proxy-generator/test/hello.wsdl")
 
-libi :: [Interface]
+libi :: [Port]
 libi = case parsedWsdl of
-           Right wsdl -> runReader interface_ wsdl
+           Right wsdl -> runReader binding wsdl
            _ -> []
 
 main :: IO ()

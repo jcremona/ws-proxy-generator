@@ -31,7 +31,7 @@ data NamedMsgs = NamedMsgs
 data ProtocolBinding = ProtocolBinding
                      { bindingName :: Text
                      , pFunction :: Function
-                     }
+                     } deriving Show
 
 data Params = Params
             { wrapperName :: Text
@@ -47,6 +47,11 @@ data Enumeration = Enumeration
                  { name    :: String
                  , members :: [EnumMembers]
                  }
+
+data Port = Port
+          { bName :: Text
+          , protocolBinding :: [ProtocolBinding]
+          } deriving Show
 
 data EnumMembers = EnumMembers -- FIXME no me queda claro que tiene que contener EnumMembers
 

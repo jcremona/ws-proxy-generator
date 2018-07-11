@@ -70,9 +70,9 @@ interface_ = do pts <- asks portTypes
 oper :: [Params] -> WSDLPortType -> Reader WSDL Interface
 oper params portType = return $ Interface (wsdlPortTypeName portType) (map (absOps params) (wsdlPortTypeOperations portType))
 
---binding :: WSDLBinding -> Reader WSDL [FunctionIdentifier]
---binding b = do is <- interface_
-  --             map is (wsdlBindingOperations b) 
+binding :: Reader WSDL [Port]
+binding = do bs <- asks bindings
+             mapM bb bs
 
 concOps :: [Function] -> ConcreteOperation -> ProtocolBinding
 concOps is op = ProtocolBinding (cOperationName op) (findFunc is op)
@@ -82,11 +82,14 @@ findFunc fs op = case find (funcSearch op) fs of
                     Nothing -> error "funcs"
                     Just f -> f
 
+
+-- TODO arrays! unbounded
+
 --type de wsdl binding
 -- interface <---> wsdlbinding
-bb :: WSDLBinding -> Reader WSDL [ProtocolBinding]
+bb :: WSDLBinding -> Reader WSDL Port
 bb b = do is <- interface_
-          return $ map (concOps $ functions $ iss is b) (wsdlBindingOperations b) 
+          return $ Port (wsdlBindingName b) (map (concOps $ functions $ iss is b) (wsdlBindingOperations b))
         
 
 iss :: [Interface] -> WSDLBinding -> Interface
