@@ -84,15 +84,18 @@ findFunc fs op = case find (funcSearch op) fs of
 
 --type de wsdl binding
 -- interface <---> wsdlbinding
-bb :: 
-bb = do bs <- asks bindings
+bb :: WSDLBinding -> Reader WSDL [ProtocolBinding]
+bb b = do is <- interface_
+          return $ map (concOps $ functions $ iss is b) (wsdlBindingOperations b) 
         
 
-iss :: WSDLBinding -> [Interface] -> Mybo
-iss b is = 
+iss :: [Interface] -> WSDLBinding -> Interface
+iss is b =  case find (ifaceSearch b) is of
+                Nothing -> error "funcs"
+                Just i -> i
 ------------------ TODO
-ifaceSearch :: Interface -> WSDLBinding -> Bool
-ifaceSearch is b = wsdlBindingType b
+ifaceSearch :: WSDLBinding -> Interface -> Bool
+ifaceSearch b is = (nameLocalName . wsdlBindingType $ b) == interfaceName is -- FIXME
 
 funcSearch :: ConcreteOperation -> Function -> Bool
 funcSearch operation f = cOperationName operation == (functionName f) && concreteInputName operation == (messageName . params $ f) && concreteOutputName operation == (messageName . returnType $ f) 
