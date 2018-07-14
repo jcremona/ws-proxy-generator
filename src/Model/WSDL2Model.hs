@@ -72,7 +72,8 @@ oper params portType = return $ Interface (wsdlPortTypeName portType) (map (absO
 
 binding :: Reader WSDL [Port]
 binding = do bs <- asks bindings
-             mapM bb bs
+             is <- interface_
+             mapM (bb is) bs
 
 concOps :: [Function] -> ConcreteOperation -> ProtocolBinding
 concOps is op = ProtocolBinding (cOperationName op) (findFunc is op)
@@ -87,9 +88,8 @@ findFunc fs op = case find (funcSearch op) fs of
 
 --type de wsdl binding
 -- interface <---> wsdlbinding
-bb :: WSDLBinding -> Reader WSDL Port
-bb b = do is <- interface_
-          return $ Port (wsdlBindingName b) (map (concOps $ functions $ iss is b) (wsdlBindingOperations b))
+bb :: [Interface] -> WSDLBinding -> Reader WSDL Port
+bb is b = return $ Port (wsdlBindingName b) (map (concOps $ functions $ iss is b) (wsdlBindingOperations b))
         
 
 iss :: [Interface] -> WSDLBinding -> Interface
