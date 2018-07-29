@@ -53,6 +53,11 @@ data Port = Port
           , protocolBinding :: [ProtocolBinding]
           } deriving Show
 
+data Service = Service
+             { sName :: Text
+             , ports :: [Port]
+             } deriving Show
+
 data EnumMembers = EnumMembers -- FIXME no me queda claro que tiene que contener EnumMembers
 
 data Metadata = Metadata

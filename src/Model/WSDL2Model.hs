@@ -89,16 +89,32 @@ findFunc fs op = case find (funcSearch op) fs of
 --type de wsdl binding
 -- interface <---> wsdlbinding
 bb :: [Interface] -> WSDLBinding -> Reader WSDL Port
-bb is b = return $ Port (wsdlBindingName b) (map (concOps $ functions $ iss is b) (wsdlBindingOperations b))
+bb is b = return $ Port (wsdlBindingName b) (map (concOps $ functions $ findInterface is b) (wsdlBindingOperations b))
         
 
-iss :: [Interface] -> WSDLBinding -> Interface
-iss is b =  case find (ifaceSearch b) is of
-                Nothing -> error "funcs"
+findInterface :: [Interface] -> WSDLBinding -> Interface
+findInterface is b =  case find (ifaceSearch b) is of
+                Nothing -> error "interf"
                 Just i -> i
 ------------------ TODO
 ifaceSearch :: WSDLBinding -> Interface -> Bool
 ifaceSearch b is = (nameLocalName . wsdlBindingType $ b) == interfaceName is -- FIXME
+
+pp :: [Port] -> WSDLService -> Reader WSDL Service
+pp ps ws = return $ Service (wsdlServiceName ws) (map (findPort ps) (wsdlServicePorts ws)) 
+
+ss :: Reader WSDL [Service]
+ss = do svs <- asks services
+        bs <- binding
+        mapM (pp bs) svs
+
+ptSearch :: WSDLPort -> Port -> Bool
+ptSearch wp p = (nameLocalName . wsdlPortBinding $ wp) == bName p -- FIXME
+
+findPort :: [Port] -> WSDLPort -> Port
+findPort ps wp = case find (ptSearch wp) ps of
+                    Nothing -> error "ports"
+                    Just p -> p   
 
 funcSearch :: ConcreteOperation -> Function -> Bool
 funcSearch operation f = cOperationName operation == (functionName f) && concreteInputName operation == (messageName . params $ f) && concreteOutputName operation == (messageName . returnType $ f) 
