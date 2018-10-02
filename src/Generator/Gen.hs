@@ -2,6 +2,7 @@ import StReader
 import Data.Char
 import Control.Monad
 import Control.Applicative
+import DGraph
 --data DataType = DataType 
 --              {
 
@@ -112,33 +113,42 @@ syntaxAnalyzer fun = do fname <- lower . name $ fun
                         return fun
                      where params = parameters fun
 
-asx :: (MonadThrowable m) => [DefFun] -> m [DefFun]
-asx funcs = do mapM syntaxAnalyzer funcs
-               fnames <- guardT (allDifferent $ names) names -- DEBEN llamarse diferente a las func EXternas tmb????
-               foldM (kkp nodes) [] funcs
-               return funcs
-            where nodes = zip names [0..]
-                  names = map name funcs
+analyzeFuncSyntax :: (MonadThrowable m) => [DefFun] -> m [String]
+analyzeFuncSyntax funcs = do mapM syntaxAnalyzer funcs
+                             guardT (allDifferent $ names) names -- DEBEN llamarse diferente a las func EXternas tmb????
+            where names = map name funcs
 
 -- ver como meter las funciones externas
 
+asx funcs = do names <- analyzeFuncSyntax funcs
+               foldM (kkp (getNodes names) ["print"]) (initEdges (length names)) funcs --FIXME NO asumir que los nodes son Int!
+            where getNodes names = zip names [0..]             
 
+initEdges :: Int -> [(Int, [Int])]
+initEdges 0 = []
+initEdges n = (n - 1, []) : initEdges (n - 1)
 
-kkp :: (MonadThrowable m) => [(String, Int)] -> [(Int,[Int])] -> DefFun -> m [(Int,[Int])]
-kkp xs ys fun = do node <- lookupT (name fun) xs
-                   kexpr node . body $ fun
-                where kexpr n (Call name' exprs) = (do dd <- (lookupT name' xs)
-                                                       return $ addT ys dd n)           ---         <|> 
-                      kexpr n (Free vble) = return ys                 
+doIt Nothing = error "Errror"
+doIt (Just v) = makeGraph v
+mb :: Maybe [(Int, [Int])]
+mb = asx [func,func2, func3]
 
--- PUEDO TENER UNA LLAMADA A UNA FUNC PASADA POR PARAMETRO, ACA FALLARIA!
+runn = doIt $ mb
+
+kkp :: (MonadThrowable m) => [(String, Int)] -> [String] -> [(Int,[Int])] -> DefFun -> m [(Int,[Int])]
+kkp xs externFuncs ys fun = do node <- lookupT (name fun) xs
+                               kexpr node . body $ fun
+                where kexpr n (Call name' exprs) = guardT (elem name' $ paramFuncs ++ externFuncs) ys <|> 
+                                                   (do dd <- lookupT name' xs
+                                                       return $ addT ys dd n)  
+                      kexpr n (Free vble) = return ys
+                      paramFuncs = map fst $ parameters fun                 
 
 --f1 a = f2 2a
 --f3 a = f1 a
 
 
 --kexpr :: Expr -> Int
-
 -- params podria ser Reader, y lista de func ya tipadas podria ser state
 
 lookupT :: (MonadThrowable m, Eq a) => a -> [(a,b)] -> m b
@@ -153,6 +163,7 @@ addT ((x,bs):ys) a b | x == a = [(x, b:bs)] ++ ys
                      | otherwise = (x,bs) : addT ys a b
 
 
-func = DefFun "sum" [("a", Single $ Prim TInt), ("b", Single $ Prim TInt)] (Call "sum" [Free "a", Free "b"])
---func2 = DefFun "sum" [("a", Single $ Prim TInt), ("b", Single $ Prim TInt)] (Call "show" [Free "a", Free "b"])
+func = DefFun "sum" [("a", Single $ Prim TInt), ("b", Single $ Prim TInt)] (Call "show" [Free "a", Free "b"])
+func2 = DefFun "show" [("a", Single $ Prim TInt), ("b", Single $ Prim TInt)] (Call "print" [Free "a", Free "b"])
+func3 = DefFun "exc" [("a", Single $ Prim TInt), ("b", Single $ Prim TInt)] (Call "sum" [Free "a", Free "b"])
 --typ = Rec (Prim TString) (Rec (Prim TInt) (Single $ Prim TInt))
