@@ -19,6 +19,7 @@ cyclicNodes graph =
   where
     isCyclicAssoc = uncurry $ reachableFromAny graph
 
+topSort = Graph.topSort
 
 -- en lugar de un filter, nos gustaria recorrer la lista y al encontrar un ciclo retornar con error.
 cyclicGraph :: Graph -> Bool

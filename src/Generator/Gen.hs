@@ -11,15 +11,18 @@ data DefFun = DefFun
             { name       :: String
             , parameters :: [(String, Type)] -- un param puede ser una funcion, deberia poder usarse esa funcion localmente
             , body       :: Expr
-            } deriving Show
+            } --deriving Show
 
-data Type = Single HType | Rec HType Type deriving Show -- separar los tipos primitivos?? tiene sentido un String? se usaria para los tipos definidos por el usuario
-data HType = UserDefined String | Prim Primitive deriving Show 
-data Primitive = TInt | TString deriving Show
+data Type = Single HType | Rec HType Type deriving (Show, Eq) -- separar los tipos primitivos?? tiene sentido un String? se usaria para los tipos definidos por el usuario
+data HType = UserDefined String | TInt | TString deriving (Show, Eq) 
 
-data Expr = Call String [Expr] | Free String deriving Show
+data Expr = Call String [Expr] | Free String --deriving Show
 
 type TypedParams = [(String, Type)]
+
+--data PP = String | P Int deriving (Show, Eq)   ES POSIBLE DEFINIR String como un VALOR del tipo PP
+
+
 
 --Call "sum" [Free "a", Free "b"]
 --"sum" => T "Int" (T "Int" (T "Int"))
@@ -50,23 +53,23 @@ prettyPrinterType (Rec htype ttype) = prettyPrinterHType htype ++ " -> " ++ pret
 
 prettyPrinterHType :: HType -> String
 prettyPrinterHType (UserDefined udtype) = udtype
-prettyPrinterHType (Prim TInt) = "Int"
-prettyPrinterHType (Prim TString) = "String"
+prettyPrinterHType TInt = "Int"
+prettyPrinterHType TString = "String"
 
 pp :: Maybe DefFun -> String
 pp Nothing = "Syntax error"
 pp (Just fun) = prettyPrinter fun
 
---typeChecking :: DefFun -> StReader () TypedParams Type
+--typeChecking :: DefFun -> StReader [(String, Type)] TypedParams Type
 --typeChecking (Def name params body) = 
 
--- VER PALABRAS RESERVADAS
 
---typeCheckingExpr :: Expr -> StReader [(String, Type)] TypedParams Type -- PRIMERO NO DEBERIA BUSCAR LA FUNC ENTRE LOS PARAM??
---typeCheckingExpr (Call name subexprs) = do params <- get
---                                           case lookup name params of
---                                                  Nothing -> throw
---                                                  Just t -> t
+typeCheckingExpr :: Expr -> StReader [(String, Type)] TypedParams Type -- PRIMERO NO DEBERIA BUSCAR LA FUNC ENTRE LOS PARAM??
+typeCheckingExpr (Call name subexprs) = do params <- ask
+                                           funcs <- get
+                                           case lookup name params <|> lookup name funcs of
+                                                  Nothing -> throwExc
+                                                  Just t -> return t
                                            
  
                                            
@@ -76,11 +79,20 @@ pp (Just fun) = prettyPrinter fun
 --	si no, hay que procesar la llamada
 
 
---typeCheckingExpr (Free vble) =  lookupVble vble
+typeCheckingExpr (Free vble) =  lookupVble vble
 
---check :: [Expr] -> Type -> Bool
---check exps ty = foldl (\ exp -> typeCheckingExpr exp 
+check :: [Expr] -> Type -> StReader [(String, Type)] TypedParams Bool
+check [] _ = return False
+check (exp:[]) (t@(Single htype)) = do ty <- typeCheckingExpr exp
+                                       return $ ty == t
+check (exp:exps) (Rec htype rtype) = do ty <- typeCheckingExpr exp
+                                        rr <- check exps rtype 
+                                        return $ ty == htype && rr    --- FIXME ver como reescribir los tipos, buscar la gram de haskell si hace falta    
 
+reservedWords = ["case","class","data","default","deriving","do","else","forall"
+  ,"if","import","in","infix","infixl","infixr","instance","let","module"
+  ,"newtype","of","qualified","then","type","where"
+  ,"foreign","ccall","as","safe","unsafe"]
 
 lookupVble :: Eq key => key -> StReader s [(key, value)] value
 lookupVble vble = do params <- ask
@@ -102,40 +114,52 @@ lower :: (MonadThrowable m) => String -> m String
 lower [] = throw "Invalid identifier (empty String)"
 lower (x:xs) = guardT (isLower x) (x:xs)
 
+notAReservedWord :: (MonadThrowable m) => String -> m String
+notAReservedWord xs = guardT (notElem xs reservedWords) xs
+
+validIdentifier :: (MonadThrowable m) => String -> m String
+validIdentifier = (>>= notAReservedWord) . lower
+
 allDifferent :: (Eq a) => [a] -> Bool
 allDifferent []     = True
 allDifferent (x:xs) = x `notElem` xs && allDifferent xs 
 
 syntaxAnalyzer :: (MonadThrowable m) => DefFun -> m DefFun
-syntaxAnalyzer fun = do fname <- lower . name $ fun
+syntaxAnalyzer fun = do fname <- validIdentifier . name $ fun
                         ps <- guardT (allDifferent $ map fst params ++ [fname]) params
-                        mapM (lower . fst) ps
+                        mapM (validIdentifier . fst) ps
                         return fun
                      where params = parameters fun
+                           
 
-analyzeFuncSyntax :: (MonadThrowable m) => [DefFun] -> m [String]
+analyzeFuncSyntax :: (MonadThrowable m) => [DefFun] -> m ()
 analyzeFuncSyntax funcs = do mapM syntaxAnalyzer funcs
-                             guardT (allDifferent $ names) names -- DEBEN llamarse diferente a las func EXternas tmb????
-            where names = map name funcs
+                             guardT (allDifferent $ map name funcs) () -- FIXME DEBEN llamarse diferente a las func EXternas tmb???? puede introducir ambiguedad al crear los pares de aristas (dependencias) 
+            
 
--- ver como meter las funciones externas
+asx funcs = do externFuncs <- get
+               return () --FIXME NO asumir que los nodes son Int!
+                         
 
-asx funcs = do names <- analyzeFuncSyntax funcs
-               foldM (kkp (getNodes names) ["print"]) (initEdges (length names)) funcs --FIXME NO asumir que los nodes son Int!
-            where getNodes names = zip names [0..]             
+buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (initEdges $ length names) funcs
+                                  return $ makeGraph edges
+                               where nodes = zip names [0..]   
+                                     names = map name funcs
 
+graphTopSort graph = do guardT (not $ cyclicGraph $ graph) ()
+                        return $ topSort graph
+
+processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
+                                        graph <- buildGraph funcs (map fst externFuncs)
+                                        graphTopSort graph
 initEdges :: Int -> [(Int, [Int])]
 initEdges 0 = []
 initEdges n = (n - 1, []) : initEdges (n - 1)
 
 doIt Nothing = error "Errror"
 doIt (Just v) = makeGraph v
-mb :: Maybe [(Int, [Int])]
-mb = asx [func,func2, func3]
 
-runn = doIt $ mb
-
-kkp :: (MonadThrowable m) => [(String, Int)] -> [String] -> [(Int,[Int])] -> DefFun -> m [(Int,[Int])]
+--kkp :: (MonadThrowable m) => [(String, Int)] -> [String] -> [(Int,[Int])] -> DefFun -> m [(Int,[Int])]
 kkp xs externFuncs ys fun = do node <- lookupT (name fun) xs
                                kexpr node . body $ fun
                 where kexpr n (Call name' exprs) = guardT (elem name' $ paramFuncs ++ externFuncs) ys <|> 
@@ -163,7 +187,7 @@ addT ((x,bs):ys) a b | x == a = [(x, b:bs)] ++ ys
                      | otherwise = (x,bs) : addT ys a b
 
 
-func = DefFun "sum" [("a", Single $ Prim TInt), ("b", Single $ Prim TInt)] (Call "show" [Free "a", Free "b"])
-func2 = DefFun "show" [("a", Single $ Prim TInt), ("b", Single $ Prim TInt)] (Call "print" [Free "a", Free "b"])
-func3 = DefFun "exc" [("a", Single $ Prim TInt), ("b", Single $ Prim TInt)] (Call "sum" [Free "a", Free "b"])
---typ = Rec (Prim TString) (Rec (Prim TInt) (Single $ Prim TInt))
+func = DefFun "sum" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "show" [Free "a", Free "b"])
+func2 = DefFun "show" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "print" [Free "a", Free "ccccccccccccc"])
+func3 = DefFun "exc" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "sum" [Free "a", Free "b"])
+--typ = Rec TString (Rec TInt (Single TInt))
