@@ -32,7 +32,10 @@ put :: s -> StReader s e ()
 put st = StReader (\ _ _ -> Just ((), st))
 
 get :: StReader s e s
-get = StReader (\ st _ -> Just (st, st)) 
+get = StReader (\ st _ -> Just (st, st))
+
+local :: (env -> env) -> StReader s env a -> StReader s env a
+local f (StReader g) = StReader (\s e -> g s $ f e)  
 
 --(\ st -> let (a, st') = s st 
 --          in runState (f a) st'

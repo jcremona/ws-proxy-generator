@@ -13,8 +13,8 @@ data DefFun = DefFun
             , body       :: Expr
             } --deriving Show
 
-data Type = Single HType | Rec HType Type deriving (Show, Eq) -- separar los tipos primitivos?? tiene sentido un String? se usaria para los tipos definidos por el usuario
-data HType = UserDefined String | TInt | TString deriving (Show, Eq) 
+data Type = Single HType | Rec Type Type deriving (Show, Eq) -- separar los tipos primitivos?? tiene sentido un String? se usaria para los tipos definidos por el usuario
+data HType = UserDefined String | TInt | TString deriving (Show, Eq) -- LISTAS??
 
 data Expr = Call String [Expr] | Free String --deriving Show
 
@@ -49,7 +49,7 @@ prettyPrinterParam xs = foldl (\res (str, ty) -> res ++ " " ++ str) "" xs
 
 prettyPrinterType :: Type -> String
 prettyPrinterType (Single htype) = prettyPrinterHType htype
-prettyPrinterType (Rec htype ttype) = prettyPrinterHType htype ++ " -> " ++ prettyPrinterType ttype
+prettyPrinterType (Rec ttype ttype') = "(" ++ prettyPrinterType ttype ++ " -> " ++ prettyPrinterType ttype' ++ ")"
 
 prettyPrinterHType :: HType -> String
 prettyPrinterHType (UserDefined udtype) = udtype
@@ -60,16 +60,20 @@ pp :: Maybe DefFun -> String
 pp Nothing = "Syntax error"
 pp (Just fun) = prettyPrinter fun
 
---typeChecking :: DefFun -> StReader [(String, Type)] TypedParams Type
---typeChecking (Def name params body) = 
-
+typeChecking :: DefFun -> StReader [(String, Type)] TypedParams Type
+typeChecking (DefFun name params body) = do bodyType <- local (const params) $ typeCheckingExpr body
+                                            funcs <- get
+                                            funcType <- return $ foldr (\ (_,t) ty -> Rec t ty) bodyType params
+                                            put $ (name, funcType):funcs  -- FIXME el client de este metodo deberia hacer este put
+                                            return $ funcType
 
 typeCheckingExpr :: Expr -> StReader [(String, Type)] TypedParams Type -- PRIMERO NO DEBERIA BUSCAR LA FUNC ENTRE LOS PARAM??
 typeCheckingExpr (Call name subexprs) = do params <- ask
                                            funcs <- get
-                                           case lookup name params <|> lookup name funcs of
-                                                  Nothing -> throwExc
-                                                  Just t -> return t
+                                           case lookup name params <|> lookup name funcs of -- FIXME arreglar este case
+                                                           Nothing -> throwExc
+                                                           Just t -> check subexprs t 
+                                           
                                            
  
                                            
@@ -81,14 +85,14 @@ typeCheckingExpr (Call name subexprs) = do params <- ask
 
 typeCheckingExpr (Free vble) =  lookupVble vble
 
-check :: [Expr] -> Type -> StReader [(String, Type)] TypedParams Bool
-check [] _ = return False
-check (exp:[]) (t@(Single htype)) = do ty <- typeCheckingExpr exp
-                                       return $ ty == t
-check (exp:exps) (Rec htype rtype) = do ty <- typeCheckingExpr exp
-                                        rr <- check exps rtype 
-                                        return $ ty == htype && rr    --- FIXME ver como reescribir los tipos, buscar la gram de haskell si hace falta    
 
+-- TODO puede StReader ser MonadThrowable??
+
+check :: [Expr] -> Type -> StReader [(String, Type)] TypedParams Type
+check [] t = return t
+check (exp:exps) (Rec ttype ttype') = do ty <- typeCheckingExpr exp
+                                         if ty == ttype then check exps ttype' else throwExc    
+check _ _ = throwExc
 reservedWords = ["case","class","data","default","deriving","do","else","forall"
   ,"if","import","in","infix","infixl","infixr","instance","let","module"
   ,"newtype","of","qualified","then","type","where"
@@ -186,8 +190,7 @@ addT [] a b = [(a, [b])]
 addT ((x,bs):ys) a b | x == a = [(x, b:bs)] ++ ys
                      | otherwise = (x,bs) : addT ys a b
 
-
-func = DefFun "sum" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "show" [Free "a", Free "b"])
+func = DefFun "sum" [("a", Single $ TInt), ("b", Single $ TInt), ("c", Single $ TString)] (Call "show" [Free "a", Free "b"])
 func2 = DefFun "show" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "print" [Free "a", Free "ccccccccccccc"])
 func3 = DefFun "exc" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "sum" [Free "a", Free "b"])
---typ = Rec TString (Rec TInt (Single TInt))
+typ = Rec (Single TInt) (Rec (Single TInt) (Single TString))
