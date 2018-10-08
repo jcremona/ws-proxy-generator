@@ -13,7 +13,7 @@ data DefFun = DefFun
             , body       :: Expr
             } --deriving Show
 
-data Type = Single HType | Rec Type Type deriving (Show, Eq) -- separar los tipos primitivos?? tiene sentido un String? se usaria para los tipos definidos por el usuario
+data Type = Single HType | Rec Type Type deriving (Show, Eq)
 data HType = UserDefined String | TInt | TString deriving (Show, Eq) -- LISTAS??
 
 data Expr = Call String [Expr] | Free String --deriving Show
@@ -31,11 +31,6 @@ type TypedParams = [(String, Type)]
 
 --myFun :: Int -> Int
 --myFun a = sum 3 a
-
--- permite alto orden al llamar a una func? Hay Diferentes tipos de llamada a una misma func
-
--- al tipar una llamada a funcion, busco en una lista de func ya tipadas
---	si ya estaba en la lista, chequeo que el tipo coincida
 
 prettyPrinter :: DefFun -> String
 prettyPrinter fun = name fun ++ prettyPrinterParam (parameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
@@ -60,36 +55,25 @@ pp :: Maybe DefFun -> String
 pp Nothing = "Syntax error"
 pp (Just fun) = prettyPrinter fun
 
-typeChecking :: DefFun -> StReader [(String, Type)] TypedParams Type
+--typeChecking :: DefFun -> StReader [(String, Type)] TypedParams Type
 typeChecking (DefFun name params body) = do bodyType <- local (const params) $ typeCheckingExpr body
                                             funcs <- get
                                             funcType <- return $ foldr (\ (_,t) ty -> Rec t ty) bodyType params
                                             put $ (name, funcType):funcs  -- FIXME el client de este metodo deberia hacer este put
                                             return $ funcType
 
-typeCheckingExpr :: Expr -> StReader [(String, Type)] TypedParams Type -- PRIMERO NO DEBERIA BUSCAR LA FUNC ENTRE LOS PARAM??
+--typeCheckingExpr :: Expr -> StReader [(String, Type)] TypedParams Type
 typeCheckingExpr (Call name subexprs) = do params <- ask
                                            funcs <- get
                                            case lookup name params <|> lookup name funcs of -- FIXME arreglar este case
                                                            Nothing -> throwExc
                                                            Just t -> check subexprs t 
-                                           
-                                           
- 
-                                           
--- si esta entre los param, tiparlo
--- si no, buscar entre las func
---	si esta, tiparlo
---	si no, hay que procesar la llamada
-
-
 typeCheckingExpr (Free vble) =  lookupVble vble
 
 
--- TODO puede StReader ser MonadThrowable??
-
-check :: [Expr] -> Type -> StReader [(String, Type)] TypedParams Type
+--check :: [Expr] -> Type -> StReader [(String, Type)] TypedParams Type
 check [] t = return t
+--check (exp:exps) (t@(Single htype)) = 
 check (exp:exps) (Rec ttype ttype') = do ty <- typeCheckingExpr exp
                                          if ty == ttype then check exps ttype' else throwExc    
 check _ _ = throwExc
@@ -98,9 +82,9 @@ reservedWords = ["case","class","data","default","deriving","do","else","forall"
   ,"newtype","of","qualified","then","type","where"
   ,"foreign","ccall","as","safe","unsafe"]
 
-lookupVble :: Eq key => key -> StReader s [(key, value)] value
+--lookupVble :: Eq key => key -> StReader s [(key, value)] value
 lookupVble vble = do params <- ask
-                     case lookup vble params of
+                     case lookup vble params of                  --- FIXME
                          Nothing -> throwExc
                          Just t -> return t
 
@@ -112,6 +96,15 @@ class (Monad m, Alternative m) => MonadThrowable m where
 instance MonadThrowable Maybe where
       throw _ = Nothing
       guardT = \x -> (guard x >>) . Just
+
+
+instance MonadThrowable (StReader s e) where
+      throw _ = throwExc
+      guardT = \x -> (guard x >>) . return
+
+instance Alternative (StReader s e) where
+      empty = StReader (\_ _ -> Nothing)
+      StReader f <|> (StReader g) = StReader (\ s e -> f s e <|> g s e)  
 
 
 lower :: (MonadThrowable m) => String -> m String
@@ -142,8 +135,25 @@ analyzeFuncSyntax funcs = do mapM syntaxAnalyzer funcs
             
 
 asx funcs = do externFuncs <- get
-               return () --FIXME NO asumir que los nodes son Int!
-                         
+               processFunctions funcs externFuncs --of ------ FIXME ver este case
+--                     Nothing -> throwExc
+--                     Just vs -> mapM (\v -> typeChecking (funcs !! v)) vs
+               get --FIXME NO asumir que los nodes son Int!
+                       
+
+
+--Gen.hs:145:1: error:
+--    • Non type-variable argument
+--        in the constraint: MonadThrowable (StReader [(String, b)] e)
+--      (Use FlexibleContexts to permit this)
+--    • When checking the inferred type
+--        asx :: forall e b.
+--               MonadThrowable (StReader [(String, b)] e) =>
+--               [DefFun] -> StReader [(String, b)] e ()  
+
+run = f $ (runStReader $ asx [func, func2, func3, func4]) [("print",typ)] []
+      where f Nothing = error "Nothing"
+            f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
 
 buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (initEdges $ length names) funcs
                                   return $ makeGraph edges
@@ -153,9 +163,12 @@ buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (init
 graphTopSort graph = do guardT (not $ cyclicGraph $ graph) ()
                         return $ topSort graph
 
+--processFunctions :: (MonadThrowable m) => [DefFun] -> [(String,Type)] -> m [Type]
 processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
                                         graph <- buildGraph funcs (map fst externFuncs)
-                                        graphTopSort graph
+                                        vs <- graphTopSort graph
+                                        mapM (\v -> typeChecking (funcs !! v)) vs
+                                       
 initEdges :: Int -> [(Int, [Int])]
 initEdges 0 = []
 initEdges n = (n - 1, []) : initEdges (n - 1)
@@ -172,13 +185,6 @@ kkp xs externFuncs ys fun = do node <- lookupT (name fun) xs
                       kexpr n (Free vble) = return ys
                       paramFuncs = map fst $ parameters fun                 
 
---f1 a = f2 2a
---f3 a = f1 a
-
-
---kexpr :: Expr -> Int
--- params podria ser Reader, y lista de func ya tipadas podria ser state
-
 lookupT :: (MonadThrowable m, Eq a) => a -> [(a,b)] -> m b
 lookupT _ [] = throw $ "Unable to find this key"
 lookupT x ((y,z):ys) | x == y = return z
@@ -191,6 +197,7 @@ addT ((x,bs):ys) a b | x == a = [(x, b:bs)] ++ ys
                      | otherwise = (x,bs) : addT ys a b
 
 func = DefFun "sum" [("a", Single $ TInt), ("b", Single $ TInt), ("c", Single $ TString)] (Call "show" [Free "a", Free "b"])
-func2 = DefFun "show" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "print" [Free "a", Free "ccccccccccccc"])
-func3 = DefFun "exc" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "sum" [Free "a", Free "b"])
+func2 = DefFun "show" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "print" [Free "a", Free "b"])
+func3 = DefFun "exc" [("a", Single $ TInt), ("b", Single $ TString)] (Call "sum" [Free "a", Free "a"])
+func4 = DefFun "apply" [("sum", Rec (Single TString) (Single TInt)), ("b", Single $ TString)] (Call "sum" [Free "b"])
 typ = Rec (Single TInt) (Rec (Single TInt) (Single TString))
