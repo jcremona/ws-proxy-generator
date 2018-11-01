@@ -1,8 +1,10 @@
-import StReader
+module Generator.Gen where
+
+import Generator.StReader
 import Data.Char
 import Control.Monad
 import Control.Applicative
-import DGraph
+import Generator.DGraph
 --data DataType = DataType 
 --              {
 

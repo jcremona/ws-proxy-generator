@@ -11,6 +11,13 @@ data LanguageAbstraction = LanguageAbstraction
                          , protocolMetadata :: Metadata
                          }
 
+data WSAbstraction = WSAbstraction 
+                   { defServices :: [Service]
+                   , types    :: [Params]
+                   }
+                   
+
+
 data Interface = Interface
                { interfaceName :: Text
                , functions     :: [Function]

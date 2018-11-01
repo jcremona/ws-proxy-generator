@@ -123,13 +123,12 @@ concreteOp :: ConcreteOperation -> FunctionIdentifier
 concreteOp operation = FunctionIdentifier (cOperationName operation) (concreteInputName operation) (concreteOutputName operation)
 
 concreteInputName :: ConcreteOperation -> Maybe Text
-concreteInputName operation = do inp <- cOperationInput operation
-                                 cInputMessageName inp
+concreteInputName = (>>= cInputMessageName) . cOperationInput
+                              --do inp <- cOperationInput operation
+                              --   cInputMessageName inp
 
 concreteOutputName :: ConcreteOperation -> Maybe Text
-concreteOutputName operation = do out <- cOperationOutput operation
-                                  cOutputMessageName out
-
+concreteOutputName = (>>= cOutputMessageName) . cOperationOutput
 
 parts :: WSDLMessagePart -> Parameter
 parts part = Parameter (wsdlMessagePartName part) (WSPrimitiveType $ convertPrimitiveType $ unpack $ nameLocalName qname)
@@ -142,6 +141,10 @@ msgs = do ms <- asks messages
 ftt :: WSDLMessage -> Reader WSDL Params
 ftt msg = return $ Params (wsdlMessageName msg) (map parts $ wsdlMessageParts msg)
 
+build :: Reader WSDL WSAbstraction
+build = do servs <- ss
+           ts <- msgs
+           return $ WSAbstraction servs ts
 
 --recorrer el binding, en el entorno deberían estar las funciones. el entorno debería ser un mapa id/name -> funcion, algo parecido para los parametros. 
 --el problema es como meter los valores en el entorno. además serían entornos distinto tipo para las func y los parametros, ver como abstraerlo. la idea es no pasar el entorno explicitamente.

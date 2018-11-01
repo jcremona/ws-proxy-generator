@@ -1,4 +1,4 @@
-module StReader where
+module Generator.StReader where
 
 import Control.Applicative (Applicative(..))
 import Control.Monad (liftM,ap)

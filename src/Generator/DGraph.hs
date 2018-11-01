@@ -1,4 +1,4 @@
-module DGraph where
+module Generator.DGraph where
 
 import Data.Graph (Graph)
 import qualified Data.Graph as Graph
