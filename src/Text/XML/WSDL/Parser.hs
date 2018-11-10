@@ -7,12 +7,13 @@
 
 -- | For parsing WSDLs.
 module Text.XML.WSDL.Parser (
-  parseLBS, parseFile
+  parseLBS--, parseFile
 ) where
 
 #if __GLASGOW_HASKELL__ <= 708
 import           Control.Applicative          (pure, (<$>))
 #endif
+import           Control.Applicative          ((<|>))
 import           Control.Monad
 import           Control.Monad.Catch          (MonadThrow, throwM)
 import           Control.Monad.Reader
@@ -45,8 +46,8 @@ parseLBS :: MonadThrow m => ByteString -> m WSDL
 parseLBS t = runReaderT (P.parseLBS def t $$ parseWSDL) emptyParseState
 
 -- | Parse a file into a WSDL.
-parseFile :: MonadResource m => FilePath -> m WSDL
-parseFile f = runReaderT (P.parseFile def f $$ parseWSDL) emptyParseState
+--parseFile :: MonadResource m => FilePath -> m WSDL
+--parseFile f = runReaderT (P.parseFile def f $$ parseWSDL) emptyParseState
 
 ignoreDocs :: MonadThrow m => ConduitM Event Event m b
 ignoreDocs = forever $ do
@@ -195,12 +196,32 @@ parseService = tagNS "service" (requireAttr "name")
         xel <- many parseXElement
         ports <- many parsePort
         return $ WSDLService n ports xel)
-
+         
 parsePort :: Parser (Maybe WSDLPort)
 parsePort = tagNS "port" (liftM2 (,) (requireAttr "name") (requireAttr "binding"))
     (\ (n,b) -> do
         xel <- many parseXElement
-        return $ WSDLPort n (textToName b) xel)
+        return $ WSDLPort n (textToName b) (getAddress xel) xel)
+         where getAddress xel = foldr (\el muri -> parseAddr el <|> muri) Nothing xel
+
+--aa = [NodeElement (Element {elementName = Name {nameLocalName = "address", nameNamespace = Just "http://schemas.xmlsoap.org/wsdl/soap/", namePrefix = Just "soap"}, elementAttributes = [(Name {nameLocalName = "location", nameNamespace = Nothing, namePrefix = Nothing},[ContentText "http://www.examples.com/SayHello/"])], elementNodes = []})]
+
+parseAddr = (>>= parseURI . T.unpack) . readAddr 
+
+readAddr :: Node -> Maybe Text
+readAddr (NodeElement (Element (Name n ns pr) attrs nodes)) = do guardM (n == "address") ()
+                                                                 foldr (\nc mb -> readElemAttr nc <|> mb) Nothing attrs
+readElemAttr :: (Name, [Content]) -> Maybe Text
+readElemAttr (Name nl ns pr, ct) = do guardM (nl == "location") ()
+                                      readCntText ct
+                                      
+readCntText :: [Content] -> Maybe Text
+readCntText [] = Nothing
+readCntText (ContentText a : xs) = return a
+readCntText (x:xs) = readCntText xs 
+
+guardM = (\x -> (guard x >>) . Just)
+
 
 textToName :: T.Text -> Name
 textToName s = case fromString (T.unpack s) of

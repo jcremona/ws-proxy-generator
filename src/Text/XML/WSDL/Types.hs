@@ -176,6 +176,7 @@ data WSDLService = WSDLService
 data WSDLPort = WSDLPort
               { wsdlPortName       :: Text
               , wsdlPortBinding    :: Name
+              , address            :: Maybe URI
               , additionalPortInfo :: [ExtensibilityElement]
               } deriving INSTANCES
 

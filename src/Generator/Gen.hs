@@ -5,20 +5,22 @@ import Data.Char
 import Control.Monad
 import Control.Applicative
 import Generator.DGraph
---data DataType = DataType 
---              {
 
+data DataType = DataType 
+              { typeName :: String,
+                constructors :: [(String, Type)]
+              }
 
 data DefFun = DefFun
-            { name       :: String
+            { funname       :: String
             , parameters :: [(String, Type)] -- un param puede ser una funcion, deberia poder usarse esa funcion localmente
             , body       :: Expr
             } --deriving Show
 
 data Type = Single HType | Rec Type Type deriving (Show, Eq)
-data HType = UserDefined String | TInt | TString deriving (Show, Eq) -- LISTAS??
+data HType = UserDefined String | TInt | TString | TDouble | TLong | TChar | TFloat | TVoid | TBool deriving (Show, Eq) -- LISTAS??
 
-data Expr = Call String [Expr] | Free String --deriving Show
+data Expr = Call String [Expr] | Free String | StringValue String | ListValue [Expr] | TupleValue (Expr,Expr)--deriving Show
 
 type TypedParams = [(String, Type)]
 
@@ -35,11 +37,14 @@ type TypedParams = [(String, Type)]
 --myFun a = sum 3 a
 
 prettyPrinter :: DefFun -> String
-prettyPrinter fun = name fun ++ prettyPrinterParam (parameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
+prettyPrinter fun = funname fun ++ prettyPrinterParam (parameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
 
 prettyPrinterExpr :: Expr -> String
 prettyPrinterExpr (Call name xs) = name ++ (foldl (\res expr -> res ++ " " ++ (prettyPrinterExpr expr)) "" xs)  
 prettyPrinterExpr (Free vble) = vble  
+prettyPrinterExpr (StringValue str) = "\"" ++ str ++ "\""
+prettyPrinterExpr (ListValue ls) = "[" ++ foldl (\res expr -> res ++ ", " ++ (prettyPrinterExpr expr)) "" ls ++ "]"
+prettyPrinterExpr (TupleValue (e1,e2)) = "(" ++ prettyPrinterExpr e1 ++ "," ++ prettyPrinterExpr e2 ++ ")"
 
 prettyPrinterParam :: [(String, Type)] -> String
 prettyPrinterParam xs = foldl (\res (str, ty) -> res ++ " " ++ str) "" xs
@@ -52,6 +57,13 @@ prettyPrinterHType :: HType -> String
 prettyPrinterHType (UserDefined udtype) = udtype
 prettyPrinterHType TInt = "Int"
 prettyPrinterHType TString = "String"
+prettyPrinterHType TDouble = "Double"
+prettyPrinterHType TLong = "Integer"
+prettyPrinterHType TChar = "Char"
+prettyPrinterHType TFloat = "Float"
+prettyPrinterHType TVoid = "()"
+prettyPrinterHType TBool = "Bool"
+
 
 pp :: Maybe DefFun -> String
 pp Nothing = "Syntax error"
@@ -71,7 +83,8 @@ typeCheckingExpr (Call name subexprs) = do params <- ask
                                                            Nothing -> throwExc
                                                            Just t -> check subexprs t 
 typeCheckingExpr (Free vble) =  lookupVble vble
-
+typeCheckingExpr (StringValue _) = return $ Single TString
+typeCheckingExpr (ListValue exprs) = 
 
 --check :: [Expr] -> Type -> StReader [(String, Type)] TypedParams Type
 check [] t = return t
@@ -113,6 +126,10 @@ lower :: (MonadThrowable m) => String -> m String
 lower [] = throw "Invalid identifier (empty String)"
 lower (x:xs) = guardT (isLower x) (x:xs)
 
+upper :: (MonadThrowable m) => String -> m String
+upper [] = throw "Invalid identifier (empty String)"
+upper (x:xs) = guardT (isUpper x) (x:xs)
+
 notAReservedWord :: (MonadThrowable m) => String -> m String
 notAReservedWord xs = guardT (notElem xs reservedWords) xs
 
@@ -124,7 +141,7 @@ allDifferent []     = True
 allDifferent (x:xs) = x `notElem` xs && allDifferent xs 
 
 syntaxAnalyzer :: (MonadThrowable m) => DefFun -> m DefFun
-syntaxAnalyzer fun = do fname <- validIdentifier . name $ fun
+syntaxAnalyzer fun = do fname <- validIdentifier . funname $ fun
                         ps <- guardT (allDifferent $ map fst params ++ [fname]) params
                         mapM (validIdentifier . fst) ps
                         return fun
@@ -133,8 +150,16 @@ syntaxAnalyzer fun = do fname <- validIdentifier . name $ fun
 
 analyzeFuncSyntax :: (MonadThrowable m) => [DefFun] -> m ()
 analyzeFuncSyntax funcs = do mapM syntaxAnalyzer funcs
-                             guardT (allDifferent $ map name funcs) () -- FIXME DEBEN llamarse diferente a las func EXternas tmb???? puede introducir ambiguedad al crear los pares de aristas (dependencias) 
+                             guardT (allDifferent $ map funname funcs) () -- FIXME DEBEN llamarse diferente a las func EXternas tmb???? puede introducir ambiguedad al crear los pares de aristas (dependencias) 
+
+dataTypeSyntaxAnalyzer :: (MonadThrowable m) => DataType -> m DataType
+dataTypeSyntaxAnalyzer dt = do mapM (upper . fst) $ constructors dt
+                               return dt
             
+analyzeDataTypesSyntax :: (MonadThrowable m) => [DataType] -> m ()
+analyzeDataTypesSyntax dts = do mapM dataTypeSyntaxAnalyzer dts
+                                guardT (allDifferent $ map typeName dts) ()
+
 
 asx funcs = do externFuncs <- get
                processFunctions funcs externFuncs --of ------ FIXME ver este case
@@ -160,7 +185,7 @@ run = f $ (runStReader $ asx [func, func2, func3, func4]) [("print",typ)] []
 buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (initEdges $ length names) funcs
                                   return $ makeGraph edges
                                where nodes = zip names [0..]   
-                                     names = map name funcs
+                                     names = map funname funcs
 
 graphTopSort graph = do guardT (not $ cyclicGraph $ graph) ()
                         return $ topSort graph
@@ -170,6 +195,11 @@ processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
                                         graph <- buildGraph funcs (map fst externFuncs)
                                         vs <- graphTopSort graph
                                         mapM (\v -> typeChecking (funcs !! v)) vs
+
+processDataTypes dts = do analyzeDataTypesSyntax dts
+                          return $ dts >>= dtype2Fun 
+
+dtype2Fun dt = map (\(ctr, ty) -> (ctr, Rec (Single $ UserDefined $ typeName dt) ty)) $ constructors dt 
                                        
 initEdges :: Int -> [(Int, [Int])]
 initEdges 0 = []
@@ -179,12 +209,12 @@ doIt Nothing = error "Errror"
 doIt (Just v) = makeGraph v
 
 --kkp :: (MonadThrowable m) => [(String, Int)] -> [String] -> [(Int,[Int])] -> DefFun -> m [(Int,[Int])]
-kkp xs externFuncs ys fun = do node <- lookupT (name fun) xs
+kkp xs externFuncs ys fun = do node <- lookupT (funname fun) xs
                                kexpr node . body $ fun
                 where kexpr n (Call name' exprs) = guardT (elem name' $ paramFuncs ++ externFuncs) ys <|> 
                                                    (do dd <- lookupT name' xs
                                                        return $ addT ys dd n)  
-                      kexpr n (Free vble) = return ys
+                      kexpr n _ = return ys
                       paramFuncs = map fst $ parameters fun                 
 
 lookupT :: (MonadThrowable m, Eq a) => a -> [(a,b)] -> m b

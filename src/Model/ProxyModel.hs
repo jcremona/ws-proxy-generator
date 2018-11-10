@@ -2,19 +2,21 @@ module Model.ProxyModel where
 
 import Data.Text      (Text)
 import Data.XML.Types
+import Network.URI
 
 data LanguageAbstraction = LanguageAbstraction 
                          { interfaces       :: [Interface]
                          , enumerations     :: [Enumeration]
                          , lists            :: [List] -- Arrays (maxOccurs=unbounded)
-                         , dataTypes        :: [DataType]
+                         , dataTypes        :: [DataTypes]
                          , protocolMetadata :: Metadata
                          }
 
 data WSAbstraction = WSAbstraction 
                    { defServices :: [Service]
                    , types    :: [Params]
-                   }
+                   , namespace :: Maybe URI
+                   } deriving Show
                    
 
 
@@ -62,7 +64,7 @@ data Port = Port
 
 data Service = Service
              { sName :: Text
-             , ports :: [Port]
+             , ports :: [(Port, Maybe URI)]
              } deriving Show
 
 data EnumMembers = EnumMembers -- FIXME no me queda claro que tiene que contener EnumMembers
@@ -71,7 +73,7 @@ data Metadata = Metadata
 
 data List = List -- FIXME ver como representar la jerarquia HWSType
 
-data DataType = DataType
+data DataTypes = DataTypes
 
 data FunctionIdentifier = FunctionIdentifier
                         { funName :: Text
@@ -81,16 +83,17 @@ data FunctionIdentifier = FunctionIdentifier
 
 data WSType = WSPrimitiveType 
             { primitiveType  :: PrimitiveType }
-            | WSDataType
-            { dataTypeName 	 :: String
-            , hasParameters  :: Bool }
-            | WSEnumType
-            { enumName       :: String }
-            | WSListType
-            { listTypeName   :: String
-            , listParameters :: [Parameter] }
-            | WSPreType
-            { preTypeName    :: String } deriving Show
+ --           | WSDataType
+ --           { dataTypeName 	 :: String
+ --           , hasParameters  :: Bool }
+ --           | WSEnumType
+ --           { enumName       :: String }
+ --           | WSListType
+ --           { listTypeName   :: String
+ --           , listParameters :: [Parameter] }
+ --           | WSPreType
+ --           { preTypeName    :: String } 
+          deriving Show
 
 data PrimitiveType = WSInt | WSDouble | WSLong | WSString | WSChar | WSFloat | WSVoid | WSBoolean deriving (Enum, Show)
 

@@ -111,10 +111,10 @@ ss = do svs <- asks services
 ptSearch :: WSDLPort -> Port -> Bool
 ptSearch wp p = (nameLocalName . wsdlPortBinding $ wp) == bName p -- FIXME
 
-findPort :: [Port] -> WSDLPort -> Port
+--findPort :: [Port] -> WSDLPort -> (Port,Maybe URI)
 findPort ps wp = case find (ptSearch wp) ps of
                     Nothing -> error "ports"
-                    Just p -> p   
+                    Just p -> (p, address wp)   
 
 funcSearch :: ConcreteOperation -> Function -> Bool
 funcSearch operation f = cOperationName operation == (functionName f) && concreteInputName operation == (messageName . params $ f) && concreteOutputName operation == (messageName . returnType $ f) 
@@ -144,7 +144,8 @@ ftt msg = return $ Params (wsdlMessageName msg) (map parts $ wsdlMessageParts ms
 build :: Reader WSDL WSAbstraction
 build = do servs <- ss
            ts <- msgs
-           return $ WSAbstraction servs ts
+           ns <- asks targetNamespace
+           return $ WSAbstraction servs ts ns
 
 --recorrer el binding, en el entorno deberían estar las funciones. el entorno debería ser un mapa id/name -> funcion, algo parecido para los parametros. 
 --el problema es como meter los valores en el entorno. además serían entornos distinto tipo para las func y los parametros, ver como abstraerlo. la idea es no pasar el entorno explicitamente.
