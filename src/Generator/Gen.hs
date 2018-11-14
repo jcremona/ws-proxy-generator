@@ -17,7 +17,8 @@ data DefFun = DefFun
             , body       :: Expr
             } --deriving Show
 
-data Type = Single HType | Rec Type Type deriving (Show, Eq)
+data Type = Single HType | Rec Type Type | TList LType | TTuple (Type, Type) deriving (Show, Eq)
+data LType = Empty | T Type deriving (Show, Eq)
 data HType = UserDefined String | TInt | TString | TDouble | TLong | TChar | TFloat | TVoid | TBool deriving (Show, Eq) -- LISTAS??
 
 data Expr = Call String [Expr] | Free String | StringValue String | ListValue [Expr] | TupleValue (Expr,Expr)--deriving Show
@@ -52,6 +53,9 @@ prettyPrinterParam xs = foldl (\res (str, ty) -> res ++ " " ++ str) "" xs
 prettyPrinterType :: Type -> String
 prettyPrinterType (Single htype) = prettyPrinterHType htype
 prettyPrinterType (Rec ttype ttype') = "(" ++ prettyPrinterType ttype ++ " -> " ++ prettyPrinterType ttype' ++ ")"
+prettyPrinterType (TList Empty) = "[" ++ "a" ++ "]" -- FIXME arreglar esto, si una func toma dos listas como parametros, las listas pueden ser del mismo tipo a o no
+prettyPrinterType (TList (T ttype)) = "[" ++ prettyPrinterType ttype ++ "]"
+prettyPrinterType (TTuple (ttype, ttype')) = "(" ++ prettyPrinterType ttype ++ ", " ++ prettyPrinterType ttype' ++ ")"
 
 prettyPrinterHType :: HType -> String
 prettyPrinterHType (UserDefined udtype) = udtype
@@ -79,19 +83,32 @@ typeChecking (DefFun name params body) = do bodyType <- local (const params) $ t
 --typeCheckingExpr :: Expr -> StReader [(String, Type)] TypedParams Type
 typeCheckingExpr (Call name subexprs) = do params <- ask
                                            funcs <- get
-                                           case lookup name params <|> lookup name funcs of -- FIXME arreglar este case
-                                                           Nothing -> throwExc
-                                                           Just t -> check subexprs t 
+                                           fn $ lookup name params <|> lookup name funcs 
+                                          where fn Nothing = throwExc      
+                                                fn (Just t) = check subexprs t  --FIXME es necesario chequear que t es de la forma Rec () () ? 
 typeCheckingExpr (Free vble) =  lookupVble vble
 typeCheckingExpr (StringValue _) = return $ Single TString
-typeCheckingExpr (ListValue exprs) = 
+--typeCheckingExpr (ListValue []) = return $ TList Empty
+typeCheckingExpr (ListValue exprs) = foldM (\ res  expr -> do t1 <- typeCheckingExpr expr
+                                                              if equalType (TList $ T t1) res then return $ TList $ T t1 else throwExc) (TList Empty) exprs  
+typeCheckingExpr (TupleValue (e1, e2)) = do t1 <- typeCheckingExpr e1
+                                            t2 <- typeCheckingExpr e2
+                                            return $ TTuple (t1, t2)
 
 --check :: [Expr] -> Type -> StReader [(String, Type)] TypedParams Type
 check [] t = return t
 --check (exp:exps) (t@(Single htype)) = 
 check (exp:exps) (Rec ttype ttype') = do ty <- typeCheckingExpr exp
-                                         if ty == ttype then check exps ttype' else throwExc    
+                                         if equalType ty ttype then check exps ttype' else throwExc    
 check _ _ = throwExc
+
+equalType (TList Empty) (TList (T _)) = False -- FIXME arreglar esto, o al menos comentar bien que el orden en el que se pasan los args importa
+equalType (TList _) (TList Empty) = True
+equalType (TList (T t1)) (TList (T t2)) = equalType t1 t2
+equalType t1 t2 = t1 == t2
+
+--callMe a b = callYou [] "s"
+
 reservedWords = ["case","class","data","default","deriving","do","else","forall"
   ,"if","import","in","infix","infixl","infixr","instance","let","module"
   ,"newtype","of","qualified","then","type","where"
@@ -182,6 +199,11 @@ run = f $ (runStReader $ asx [func, func2, func3, func4]) [("print",typ)] []
       where f Nothing = error "Nothing"
             f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
 
+run2 = f $ (runStReader $ asx [func5]) [("length",typ2)] []
+      where f Nothing = error "Nothing"
+            f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
+
+
 buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (initEdges $ length names) funcs
                                   return $ makeGraph edges
                                where nodes = zip names [0..]   
@@ -233,3 +255,6 @@ func2 = DefFun "show" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "print"
 func3 = DefFun "exc" [("a", Single $ TInt), ("b", Single $ TString)] (Call "sum" [Free "a", Free "a"])
 func4 = DefFun "apply" [("sum", Rec (Single TString) (Single TInt)), ("b", Single $ TString)] (Call "sum" [Free "b"])
 typ = Rec (Single TInt) (Rec (Single TInt) (Single TString))
+
+func5 = DefFun "len" [("a", TList $ T $ Single TInt)] (Call "length" [Free "a"])
+typ2 = Rec (TList Empty) (Single TInt)
