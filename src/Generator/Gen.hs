@@ -2,6 +2,7 @@ module Generator.Gen where
 
 import Generator.StReader
 import Data.Char
+import Data.List
 import Control.Monad
 import Control.Applicative
 import Generator.DGraph
@@ -9,11 +10,11 @@ import Generator.DGraph
 data DataType = DataType 
               { typeName :: String,
                 constructors :: [(String, Type)]
-              }
+              } deriving Show
 
 data DefFun = DefFun
             { funname       :: String
-            , parameters :: [(String, Type)] -- un param puede ser una funcion, deberia poder usarse esa funcion localmente
+            , funparameters :: [(String, Type)] -- un param puede ser una funcion, deberia poder usarse esa funcion localmente
             , body       :: Expr
             } --deriving Show
 
@@ -38,13 +39,13 @@ type TypedParams = [(String, Type)]
 --myFun a = sum 3 a
 
 prettyPrinter :: DefFun -> String
-prettyPrinter fun = funname fun ++ prettyPrinterParam (parameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
+prettyPrinter fun = funname fun ++ prettyPrinterParam (funparameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
 
 prettyPrinterExpr :: Expr -> String
 prettyPrinterExpr (Call name xs) = name ++ (foldl (\res expr -> res ++ " " ++ (prettyPrinterExpr expr)) "" xs)  
 prettyPrinterExpr (Free vble) = vble  
 prettyPrinterExpr (StringValue str) = "\"" ++ str ++ "\""
-prettyPrinterExpr (ListValue ls) = "[" ++ foldl (\res expr -> res ++ ", " ++ (prettyPrinterExpr expr)) "" ls ++ "]"
+prettyPrinterExpr (ListValue ls) = "[" ++ (intercalate "," $ map prettyPrinterExpr ls) ++ "]"--"[" ++ foldl (\res expr -> res ++ ", " ++ (prettyPrinterExpr expr)) "" ls ++ "]"
 prettyPrinterExpr (TupleValue (e1,e2)) = "(" ++ prettyPrinterExpr e1 ++ "," ++ prettyPrinterExpr e2 ++ ")"
 
 prettyPrinterParam :: [(String, Type)] -> String
@@ -162,7 +163,7 @@ syntaxAnalyzer fun = do fname <- validIdentifier . funname $ fun
                         ps <- guardT (allDifferent $ map fst params ++ [fname]) params
                         mapM (validIdentifier . fst) ps
                         return fun
-                     where params = parameters fun
+                     where params = funparameters fun
                            
 
 analyzeFuncSyntax :: (MonadThrowable m) => [DefFun] -> m ()
@@ -170,7 +171,8 @@ analyzeFuncSyntax funcs = do mapM syntaxAnalyzer funcs
                              guardT (allDifferent $ map funname funcs) () -- FIXME DEBEN llamarse diferente a las func EXternas tmb???? puede introducir ambiguedad al crear los pares de aristas (dependencias) 
 
 dataTypeSyntaxAnalyzer :: (MonadThrowable m) => DataType -> m DataType
-dataTypeSyntaxAnalyzer dt = do mapM (upper . fst) $ constructors dt
+dataTypeSyntaxAnalyzer dt = do mapM (lower . fst) $ constructors dt
+                               upper $ typeName dt
                                return dt
             
 analyzeDataTypesSyntax :: (MonadThrowable m) => [DataType] -> m ()
@@ -178,11 +180,13 @@ analyzeDataTypesSyntax dts = do mapM dataTypeSyntaxAnalyzer dts
                                 guardT (allDifferent $ map typeName dts) ()
 
 
-asx funcs = do externFuncs <- get
-               processFunctions funcs externFuncs --of ------ FIXME ver este case
+asx funcs dts = do externFuncs <- get
+                   dtFuncs <- processDataTypes dts
+                   put $ externFuncs ++ dtFuncs
+                   processFunctions funcs (externFuncs ++ dtFuncs)--of ------ FIXME ver este case
 --                     Nothing -> throwExc
 --                     Just vs -> mapM (\v -> typeChecking (funcs !! v)) vs
-               get --FIXME NO asumir que los nodes son Int!
+                   get --FIXME NO asumir que los nodes son Int!
                        
 
 
@@ -195,14 +199,22 @@ asx funcs = do externFuncs <- get
 --               MonadThrowable (StReader [(String, b)] e) =>
 --               [DefFun] -> StReader [(String, b)] e ()  
 
-run = f $ (runStReader $ asx [func, func2, func3, func4]) [("print",typ)] []
+run1 = f $ (runStReader $ asx [func, func2, func3, func4] []) [("print",typ)] []
       where f Nothing = error "Nothing"
             f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
 
-run2 = f $ (runStReader $ asx [func5]) [("length",typ2)] []
+run2 = f $ (runStReader $ asx [func5] []) [("length",typ2)] []
       where f Nothing = error "Nothing"
             f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
 
+
+run func dts = f $ (runStReader $ asx func dts) [("callWS",callWSType)] []
+      where f Nothing = error "Nothing"
+            f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
+
+runL f d = run [f] [d]
+
+r = runStReader
 
 buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (initEdges $ length names) funcs
                                   return $ makeGraph edges
@@ -237,7 +249,7 @@ kkp xs externFuncs ys fun = do node <- lookupT (funname fun) xs
                                                    (do dd <- lookupT name' xs
                                                        return $ addT ys dd n)  
                       kexpr n _ = return ys
-                      paramFuncs = map fst $ parameters fun                 
+                      paramFuncs = map fst $ funparameters fun                 
 
 lookupT :: (MonadThrowable m, Eq a) => a -> [(a,b)] -> m b
 lookupT _ [] = throw $ "Unable to find this key"
@@ -258,3 +270,5 @@ typ = Rec (Single TInt) (Rec (Single TInt) (Single TString))
 
 func5 = DefFun "len" [("a", TList $ T $ Single TInt)] (Call "length" [Free "a"])
 typ2 = Rec (TList Empty) (Single TInt)
+
+callWSType = Rec (TList Empty) (Single TString)

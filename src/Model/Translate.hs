@@ -1,6 +1,6 @@
 import Generator.Gen
 import Model.WSDL2Model
-import Data.Text hiding (map)
+import Data.Text hiding (map, head)
 import Data.XML.Types
 import qualified Data.Map as Map
 import Model.ProxyModel
@@ -13,9 +13,10 @@ s = "S"
 -- function <-> deffun
 
 toFunction :: Function -> DefFun
-toFunction (Function functionName params returnType _) =  DefFun (unpack functionName) [] (Call "callWS" [])
+toFunction (Function functionName params returnType _) =  DefFun (unpack functionName) [("dt", Single . UserDefined . typeName $ dt)] (Call "callWS" [ListValue $ map (\(c,_) -> TupleValue(StringValue c, Call c [Free "dt"])) $ constructors dt])
+                                                           where dt = params2DataType $ messageType params 
 
-NamedMsgs 
+ -- FIXME el param dt no puede ser igual a ninguna funcion??
 
 params2DataType :: Params -> DataType
 params2DataType (Params name parameters) = DataType (unpack name) $ map parameter2Constructor parameters 
@@ -33,6 +34,14 @@ wsType2Type (WSPrimitiveType WSVoid) = Single TVoid
 wsType2Type (WSPrimitiveType WSBoolean) = Single TBool  
  
 
+p = Params {wrapperName = pack "SayHelloRequest2", parameters = [Parameter {parameterName = Name {nameLocalName = pack "firstNam", nameNamespace = Nothing, namePrefix = Nothing}, ttype = WSPrimitiveType {primitiveType = WSInt}}]}
+f = Function {functionName = pack "sayHello", params = NamedMsgs {messageName = Just $ pack "c", messageType = Params {wrapperName = pack "SayHelloRequest2", parameters = [Parameter {parameterName = Name {nameLocalName = pack "firstNam", nameNamespace = Nothing, namePrefix = Nothing}, ttype = WSPrimitiveType {primitiveType = WSInt}}]}}, returnType = NamedMsgs {messageName = Just $ pack "d", messageType = Params {wrapperName = pack "SayHelloResponse", parameters = [Parameter {parameterName = Name {nameLocalName = pack "greeting", nameNamespace = Nothing, namePrefix = Nothing}, ttype = WSPrimitiveType {primitiveType = WSString}}]}}, soapAction = ""}
 
 --sayHello :: 
 --sayHello dt = callWS uri name namespace [(p1, ent dt), (p2, str dt)] responseName
+
+--hd' :: [Int] -> Int
+--hd' = head 
+
+--myf :: [a] -> a
+--myf hd' = hd' hd'	
