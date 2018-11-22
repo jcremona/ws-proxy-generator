@@ -16,13 +16,19 @@ data DefFun = DefFun
             { funname       :: String
             , funparameters :: [(String, Type)] -- un param puede ser una funcion, deberia poder usarse esa funcion localmente
             , body       :: Expr
-            } --deriving Show
+            } deriving Show
+
+data Module = Module
+            { moduleName :: String,
+              functions :: [DefFun]
+            , dataTypes :: [DataType]
+            } deriving Show
 
 data Type = Single HType | Rec Type Type | TList LType | TTuple (Type, Type) deriving (Show, Eq)
 data LType = Empty | T Type deriving (Show, Eq)
 data HType = UserDefined String | TInt | TString | TDouble | TLong | TChar | TFloat | TVoid | TBool deriving (Show, Eq) -- LISTAS??
 
-data Expr = Call String [Expr] | Free String | StringValue String | ListValue [Expr] | TupleValue (Expr,Expr)--deriving Show
+data Expr = Call String [Expr] | Free String | StringValue String | ListValue [Expr] | TupleValue (Expr,Expr) deriving Show
 
 type TypedParams = [(String, Type)]
 
@@ -38,8 +44,18 @@ type TypedParams = [(String, Type)]
 --myFun :: Int -> Int
 --myFun a = sum 3 a
 
-prettyPrinter :: DefFun -> String
-prettyPrinter fun = funname fun ++ prettyPrinterParam (funparameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
+write m = writeFile ("/home/jcremona/" ++ moduleName m ++ ".hs") $ prettyPrinterModule m
+
+
+prettyPrinterModule :: Module -> String
+prettyPrinterModule (Module name funcs dts) = "module " ++ name ++ " where\n\n" ++ (dts >>= (++ "\n\n") . prettyPrinterDataType) ++ (funcs >>= (++ "\n\n") . prettyPrinterFun)
+
+prettyPrinterFun :: DefFun -> String
+prettyPrinterFun fun = funname fun ++ prettyPrinterParam (funparameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
+
+prettyPrinterDataType :: DataType -> String
+prettyPrinterDataType (DataType name constructors) = "data " ++ name ++ " = " ++ name ++ "{\n" ++ (intercalate "," $ map prettyPrinterConstructor constructors) ++ "} deriving (Show)\n"
+                                                where prettyPrinterConstructor (n, t) = n ++ "::" ++ prettyPrinterType t ++ "\n" 
 
 prettyPrinterExpr :: Expr -> String
 prettyPrinterExpr (Call name xs) = name ++ (foldl (\res expr -> res ++ " " ++ (prettyPrinterExpr expr)) "" xs)  
@@ -70,9 +86,9 @@ prettyPrinterHType TVoid = "()"
 prettyPrinterHType TBool = "Bool"
 
 
-pp :: Maybe DefFun -> String
-pp Nothing = "Syntax error"
-pp (Just fun) = prettyPrinter fun
+--pp :: Maybe DefFun -> String
+--pp Nothing = "Syntax error"
+--pp (Just fun) = prettyPrinter fun
 
 --typeChecking :: DefFun -> StReader [(String, Type)] TypedParams Type
 typeChecking (DefFun name params body) = do bodyType <- local (const params) $ typeCheckingExpr body
@@ -107,8 +123,6 @@ equalType (TList Empty) (TList (T _)) = False -- FIXME arreglar esto, o al menos
 equalType (TList _) (TList Empty) = True
 equalType (TList (T t1)) (TList (T t2)) = equalType t1 t2
 equalType t1 t2 = t1 == t2
-
---callMe a b = callYou [] "s"
 
 reservedWords = ["case","class","data","default","deriving","do","else","forall"
   ,"if","import","in","infix","infixl","infixr","instance","let","module"
@@ -189,7 +203,11 @@ asx funcs dts = do externFuncs <- get
                    get --FIXME NO asumir que los nodes son Int!
                        
 
+processModule moduleName funcs dts = do fs <- asx funcs dts
+                                        return $ Module (upperFirstChar moduleName) funcs dts
 
+
+runGenerationModule (Module moduleName funcs dts) = runStReader (processModule moduleName funcs dts) [("invokeWS",callWSType)] [] >>= Just . fst
 --Gen.hs:145:1: error:
 --    • Non type-variable argument
 --        in the constraint: MonadThrowable (StReader [(String, b)] e)
@@ -208,7 +226,7 @@ run2 = f $ (runStReader $ asx [func5] []) [("length",typ2)] []
             f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
 
 
-run func dts = f $ (runStReader $ asx func dts) [("callWS",callWSType)] []
+run func dts = f $ (runStReader $ asx func dts) [("invokeWS",callWSType)] []
       where f Nothing = error "Nothing"
             f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
 
@@ -224,11 +242,16 @@ buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (init
 graphTopSort graph = do guardT (not $ cyclicGraph $ graph) ()
                         return $ topSort graph
 
+-- Se pasa externFuncs como parametro, en vez de obtenerlo mediante get, debido a que no se quiere obligar a los metodos
+-- a usar explicitamente StReader (se usa cualquier instancia de MonadThrowable). 
+
 --processFunctions :: (MonadThrowable m) => [DefFun] -> [(String,Type)] -> m [Type]
 processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
                                         graph <- buildGraph funcs (map fst externFuncs)
                                         vs <- graphTopSort graph
                                         mapM (\v -> typeChecking (funcs !! v)) vs
+
+--typeChecking usa explicitamente StReader
 
 processDataTypes dts = do analyzeDataTypesSyntax dts
                           return $ dts >>= dtype2Fun 
@@ -262,6 +285,13 @@ addT [] a b = [(a, [b])]
 addT ((x,bs):ys) a b | x == a = [(x, b:bs)] ++ ys
                      | otherwise = (x,bs) : addT ys a b
 
+lowerFirstChar :: String -> String
+lowerFirstChar (a:as) = (toLower a):as
+
+upperFirstChar :: String -> String
+upperFirstChar (a:as) = (toUpper a):as
+
+
 func = DefFun "sum" [("a", Single $ TInt), ("b", Single $ TInt), ("c", Single $ TString)] (Call "show" [Free "a", Free "b"])
 func2 = DefFun "show" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "print" [Free "a", Free "b"])
 func3 = DefFun "exc" [("a", Single $ TInt), ("b", Single $ TString)] (Call "sum" [Free "a", Free "a"])
@@ -270,5 +300,6 @@ typ = Rec (Single TInt) (Rec (Single TInt) (Single TString))
 
 func5 = DefFun "len" [("a", TList $ T $ Single TInt)] (Call "length" [Free "a"])
 typ2 = Rec (TList Empty) (Single TInt)
+typ3 = Rec (Single TString) (Rec (Single TString) (Single TString))
 
-callWSType = Rec (TList Empty) (Single TString)
+callWSType = Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (TList Empty) (Single TString)

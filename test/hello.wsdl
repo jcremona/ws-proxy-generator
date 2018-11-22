@@ -13,6 +13,7 @@
  
    <message name="SayHelloRequest">
       <part name="firstName" type="xsd:string"/>
+      <part name="age" type="xsd:int"/>
    </message>
 	
    <message name="SayHelloRequest2">

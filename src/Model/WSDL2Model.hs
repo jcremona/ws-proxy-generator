@@ -9,6 +9,9 @@ import Data.XML.Types
 import Text.XML.WSDL.Types
 import Control.Monad.Catch (MonadThrow, throwM)
 type Error = String
+
+
+data Style = RPCLiteral | RPCEncoded | DocumentLiteral | DocumentLiteralWrapped
 -- TODO ver en AssignParameters para que sirven los pretypes (para cuando no se encuentra un tipo en un paso previo)
 -- TODO ver MountFunctions, ya que tomaremos solo tipos basicos tomados direct de los parts de los Messages
 
@@ -114,7 +117,11 @@ ptSearch wp p = (nameLocalName . wsdlPortBinding $ wp) == bName p -- FIXME
 --findPort :: [Port] -> WSDLPort -> (Port,Maybe URI)
 findPort ps wp = case find (ptSearch wp) ps of
                     Nothing -> error "ports"
-                    Just p -> (p, address wp)   
+                    Just p -> (p, getWsdlAddress wp)   
+
+getWsdlAddress wp = fn $ address wp
+                 where fn Nothing = error "Undefined address"
+                       fn (Just addr) = addr
 
 funcSearch :: ConcreteOperation -> Function -> Bool
 funcSearch operation f = cOperationName operation == (functionName f) && concreteInputName operation == (messageName . params $ f) && concreteOutputName operation == (messageName . returnType $ f) 

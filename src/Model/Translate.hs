@@ -1,20 +1,49 @@
+{-# LANGUAGE TemplateHaskell #-}
 import Generator.Gen
 import Model.WSDL2Model
 import Data.Text hiding (map, head)
 import Data.XML.Types
 import qualified Data.Map as Map
 import Model.ProxyModel
+import Data.FileEmbed
+import Text.XML.WSDL.Parser
+import Data.ByteString.Lazy (fromStrict)
+import Network.URI
 
-s = "S"
+import Control.Exception
+import Control.Monad        hiding (forM_)
+import Control.Monad.Reader
+import Data.Either
 
-
+import Text.XML.WSDL.Types hiding (types)
 -- params <-> datatype
 -- parameters <-> c/u de los valores del datatype
 -- function <-> deffun
 
-toFunction :: Function -> DefFun
-toFunction (Function functionName params returnType _) =  DefFun (unpack functionName) [("dt", Single . UserDefined . typeName $ dt)] (Call "callWS" [ListValue $ map (\(c,_) -> TupleValue(StringValue c, Call c [Free "dt"])) $ constructors dt])
-                                                           where dt = params2DataType $ messageType params 
+parsedWsdl :: Either SomeException WSDL
+parsedWsdl = parseLBS $ fromStrict $(embedFile "/home/jcremona/ws-proxy-generator/test/hello.wsdl")
+
+model = case parsedWsdl of
+           Right wsdl -> runReader build wsdl
+           _ -> error "Error during parsing"
+
+
+translate ws = map ((cc (fn $ namespace ws) (types ws)) . ports) (defServices ws)
+               where fn Nothing = error "Undefined namespace"
+                     fn (Just t) = t
+
+mk = map (\ms -> map (\ m -> runGenerationModule m) ms) $ translate model
+
+cc namespace params ps = (map (\port -> flip ((Module $ unpack $ bName . fst $ port) . vvv namespace (snd port) . protocolBinding . fst) (map params2DataType params) port)  ps)
+
+vvv namespace address pb = map ((toFunction namespace address . pFunction)) pb
+
+-- TODO ver que pasa con el port y con el binding, leer los styles
+
+toFunction :: Network.URI.URI -> Network.URI.URI -> Function  -> DefFun
+toFunction  namespace address (Function functionName params returnType _) =  DefFun fname [("dt", Single . UserDefined . typeName $ dt)] (Call "invokeWS" [StringValue $ show address, StringValue fname, StringValue $ show namespace, StringValue "", ListValue $ map (\(c,_) -> TupleValue(StringValue c, Call c [Free "dt"])) $ constructors dt])
+                                                           where dt = params2DataType $ messageType params
+                                                                 fname = unpack functionName
 
  -- FIXME el param dt no puede ser igual a ninguna funcion??
 

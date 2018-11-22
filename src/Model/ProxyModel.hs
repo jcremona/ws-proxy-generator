@@ -64,7 +64,7 @@ data Port = Port
 
 data Service = Service
              { sName :: Text
-             , ports :: [(Port, Maybe URI)]
+             , ports :: [(Port, URI)]
              } deriving Show
 
 data EnumMembers = EnumMembers -- FIXME no me queda claro que tiene que contener EnumMembers

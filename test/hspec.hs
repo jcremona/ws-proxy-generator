@@ -24,22 +24,22 @@ libi = case parsedWsdl of
            Right wsdl -> runReader ss wsdl
            _ -> []
 
-main :: IO ()
-main = forM_ parsedWsdl $ \ wsdl -> hspec $ do
-    describe "WSDL" $ it "Show" $ show wsdl `shouldStartWith` "WSDL"
-
-    describe "parse" $ do
-        it "targetNamespace" $
-            targetNamespace wsdl `shouldBe` parseURI "http://www.examples.com/wsdl/HelloService.wsdl"
-        it "types" $
-            types wsdl `shouldBe` Just (WSDLTypes [Schema] [])
-        describe "messages" $ do
-            let firstMessage = head (messages wsdl)
-            it "names" $
-                wsdlMessageName firstMessage `shouldBe` "SayHelloRequest"
-            describe "parts" $ do
-                let firstPart = head (wsdlMessageParts firstMessage)
-                it "names" $
-                    wsdlMessagePartName firstPart `shouldBe` "firstName"
-                it "types" $
-                    wsdlMessagePartType firstPart `shouldBe` Just "string"
+--main :: IO ()
+--main = forM_ parsedWsdl $ \ wsdl -> hspec $ do
+--    describe "WSDL" $ it "Show" $ show wsdl `shouldStartWith` "WSDL"
+--
+--    describe "parse" $ do
+--        it "targetNamespace" $
+ --           targetNamespace wsdl `shouldBe` parseURI "http://www.examples.com/wsdl/HelloService.wsdl"
+ --       it "types" $
+  --          types wsdl `shouldBe` Just (WSDLTypes [Schema] [])
+  --      describe "messages" $ do
+  --          let firstMessage = head (messages wsdl)
+   --         it "names" $
+   --             wsdlMessageName firstMessage `shouldBe` "SayHelloRequest"
+    ---        describe "parts" $ do
+    --            let firstPart = head (wsdlMessageParts firstMessage)
+    --            it "names" $
+    --                wsdlMessagePartName firstPart `shouldBe` "firstName"
+    --            it "types" $
+     --               wsdlMessagePartType firstPart `shouldBe` Just "string"
