@@ -175,15 +175,20 @@ opTag :: (MonadReader ParseState m, MonadThrow m)
       -> ConduitM Event o m (Maybe a)
 opTag = fmap join . tagNS "operation" (liftM2 (,) (requireAttr "name") (attr "parameterOrder"))
 
+actionName = Name {nameLocalName = "Action", nameNamespace = Just "http://www.w3.org/2007/05/addressing/metadata", namePrefix = Just "wsam"}
+
 parseInputMessage :: Parser (Maybe InputMessage)
 parseInputMessage = tagNS "input"
-    (liftM2 (,) (attr "name") (textToName <$> requireAttr "message"))
-    (return . uncurry InputMessage)
+    (liftM3 (,,) (attr "name") (textToName <$> requireAttr "message") (attr actionName)) -- AttrParser (Maybe Text, Name)
+    (return . uncurry3 InputMessage)
 
 parseOutputMessage :: Parser (Maybe OutputMessage)
 parseOutputMessage = tagNS "output"
-    (liftM2 (,) (attr "name") (textToName <$> requireAttr "message"))
-    (return . uncurry OutputMessage)
+    (liftM3 (,,) (attr "name") (textToName <$> requireAttr "message") (attr actionName)) -- AttrParser (Maybe Text, Name)
+    (return . uncurry3 OutputMessage)
+
+uncurry3 :: (a -> b -> c -> d) -> (a,b,c) -> d
+uncurry3 f (a,b,c) = f a b c
 
 parseFault :: Parser (Maybe FaultMessage)
 parseFault = tagNS "fault"

@@ -1,0 +1,38 @@
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://example.com/pysimplesoapsamle/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="PySimpleSoapSample" targetNamespace="http://example.com/pysimplesoapsamle/">
+<documentation xmlns="http://schemas.xmlsoap.org/wsdl/">Example soap service using PySimpleSoap</documentation>
+<types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" targetNamespace="http://example.com/pysimplesoapsamle/"> </xsd:schema>
+</types>
+<message name="EchoInput">
+<part name="input0" type="xsd:string"/>
+<part name="input1" type="xsd:int"/>
+</message>
+<message name="EchoOutput">
+<part name="output0" type="xsd:string"/>
+<part name="output1" type="xsd:int"/>
+</message>
+<portType name="PySimpleSoapSamplePortType">
+<operation name="Echo">
+<input message="tns:EchoInput"/>
+<output message="tns:EchoOutput"/>
+</operation>
+</portType>
+<binding name="PySimpleSoapSampleBinding" type="tns:PySimpleSoapSamplePortType">
+<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+<operation name="Echo">
+<soap:operation soapAction="http://localhost:8008/Echo" style="rpc"/>
+<input>
+<soap:body use="literal"/>
+</input>
+<output>
+<soap:body use="literal"/>
+</output>
+</operation>
+</binding>
+<service name="PySimpleSoapSampleService">
+<documentation>Example soap service using PySimpleSoap</documentation>
+<port binding="tns:PySimpleSoapSampleBinding" name="PySimpleSoapSample">
+<soap:address location="http://localhost:8008/"/>
+</port>
+</service>
+</definitions>

@@ -1,0 +1,62 @@
+DOCUMENT/LITERAL
+
+
+<types>
+    <schema>
+        <element name="xElement" type="xsd:int"/>
+        <element name="yElement" type="xsd:float"/>
+    </schema>
+</types>
+ 
+<message name="myMethodRequest">
+    <part name="x" element="xElement"/>
+    <part name="y" element="yElement"/>
+</message>
+<message name="empty"/>
+
+
+Si es "document" y "literal" se envía:
+
+        <xElement>5</xElement>
+        <yElement>5.0</yElement>
+
+
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+
+DOCUMENT/LITERAL Wrapped
+
+<types>
+    <schema>
+        <element name="myMethod">
+            <complexType>
+                <sequence>
+                    <element name="x" type="xsd:int"/>
+                    <element name="y" type="xsd:float"/>
+                </sequence>
+            </complexType>
+        </element>
+    </schema>
+</types>
+
+<message name="myMethodRequest">
+    <part name="parameters" element="myMethod"/>
+</message>
+
+<portType name="PT">
+    <operation name="myMethod">
+        <input message="myMethodRequest"/>
+        <output message="empty"/>
+    </operation>
+</portType>
+
+Si es "document" y "literal" se envía:
+
+        <myMethod>
+            <x>5</x>
+            <y>5.0</y>
+        </myMethod>
+
+La particularidad es que el element se llama igual que la operation
+
+

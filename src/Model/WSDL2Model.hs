@@ -14,40 +14,16 @@ type Error = String
 data Style = RPCLiteral | RPCEncoded | DocumentLiteral | DocumentLiteralWrapped
 -- TODO ver en AssignParameters para que sirven los pretypes (para cuando no se encuentra un tipo en un paso previo)
 -- TODO ver MountFunctions, ya que tomaremos solo tipos basicos tomados direct de los parts de los Messages
-
---data QName = QName
---	{ localName :: Text
---	, namespace :: Text
---	}
---	deriving (Show)
-
---instance Eq QName where
---	(==) = (==) `on` (\x -> (namespace x, localName x))
-
--- usar lookup
---type Environment = [(QName,DataType)]
---wsdl2Model :: WSDL -> LanguageAbstraction
---wsdl2Model wsdl = null
-
-
-
---operations :: (QName -> Parameter) -> Reader WSDL Function
---operations f = do msgs <- asks messages
-                  
-                  
-
---binds :: Reader WSDL Function
---binds = do b <- asks bindings
            
 
 -- Agregar un Maybe Text junto con el Params devuelto
 findInputParam :: [Params] -> InputMessage -> NamedMsgs
-findInputParam ps input = case find (paramsSearch $ (nameLocalName . inputMessageType) input) ps of
+findInputParam ps input = case find (paramsSearch $ nameLocalName $ inputMessageType input) ps of
                               Nothing -> error "input"
                               Just p -> NamedMsgs (inputMessageName input) p
 
 findOutputParam :: [Params] -> OutputMessage -> NamedMsgs
-findOutputParam ps output = case find (paramsSearch $ (nameLocalName . outputMessageType) output) ps of
+findOutputParam ps output = case find (paramsSearch $ nameLocalName $ outputMessageType output) ps of
                               Nothing -> error "output"
                               Just p -> NamedMsgs (outputMessageName output) p
 

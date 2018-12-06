@@ -29,10 +29,7 @@
          <input name="a" message="tns:SayHelloRequest"/>
          <output name="b" message="tns:SayHelloResponse"/>
       </operation>
-      <operation name="sayHello">
-         <input name="c" message="tns:SayHelloRequest2"/>
-         <output name="d" message="tns:SayHelloResponse"/>
-      </operation>
+      
    </portType>
 
    <binding name="Hello_Binding" type="tns:Hello_PortType">
@@ -56,24 +53,7 @@
                />
          </output>
       </operation>
-      <operation name="sayHello">
-         <soap:operation soapAction="sayHello"/>
-         <input name="c">
-            <soap:body
-               encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
-				namespace="urn:examples:helloservice"
-               
-               />
-         </input>
-		
-         <output name="d">
-            <soap:body
-               encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
-               namespace="urn:examples:helloservice"
-               
-               />
-         </output>
-      </operation>
+      
    </binding>
 
    <service name="Hello_Service">

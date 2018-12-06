@@ -1,41 +1,58 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE RankNTypes                #-}
 module Generator.StReader where
 
-import Control.Applicative (Applicative(..))
+import Control.Applicative 
 import Control.Monad (liftM,ap)
-
+import Control.Exception
+import           Control.Monad.Catch          (MonadThrow, throwM)
 --newtype State s a = State { runState :: s -> (a, s) }
 --newtype Reader e a = Reader { runReader :: e -> a }
 
-newtype StReader s e a = StReader { runStReader :: s -> e -> Maybe (a,s) }
+data InternalStReader m s e a = InternalStReader { runStReader :: s -> e -> m (a,s) }
+type StReader a = forall m s e. (MonadThrow m) => InternalStReader m s e a
 
-instance Functor (StReader s e) where
+instance MonadThrow m => Functor (InternalStReader m s e) where
     fmap = liftM
 
-instance Applicative (StReader s e) where
+instance MonadThrow m => Applicative (InternalStReader m s e) where
     pure = return
     (<*>) = ap
 
-instance Monad (StReader s e) where
-    return x = StReader (\ s e -> Just (x, s) )
-    StReader t >>= f = StReader (\ st e -> case t st e of
-                                                Nothing -> Nothing
-                                                Just (a, st') -> runStReader (f a) st' e) 
+instance MonadThrow m => Monad (InternalStReader m s e) where
+    return x = InternalStReader (\ s e -> return (x, s) )
+    InternalStReader t >>= f = InternalStReader (\ st e -> t st e >>= \(a, st') -> runStReader (f a) st' e)
+                                                --Nothing -> Nothing
+                                                --Just (a, st') -> runInternalStReader (f a) st' e) 
 
 
-throwExc :: StReader s e a
-throwExc = StReader (\ _ _ -> Nothing)
+--instance (MonadThrow m, Alternative m) => Alternative (InternalStReader m s e) where
+--      empty = InternalStReader (\_ _ -> throwM . toException $ CustomException "Empty")
+--      InternalStReader f <|> (InternalStReader g) = InternalStReader (\ s e -> f s e <|> g s e)  
 
-ask :: StReader s e e
-ask = StReader (\ st env -> Just (env, st))
 
-put :: s -> StReader s e ()
-put st = StReader (\ _ _ -> Just ((), st))
+throwExc :: (MonadThrow m) => SomeException -> InternalStReader m s e a
+throwExc e = InternalStReader (\ _ _ -> throwM e)
 
-get :: StReader s e s
-get = StReader (\ st _ -> Just (st, st))
+ask :: MonadThrow m => InternalStReader m s e e
+ask = InternalStReader (\ st env -> return (env, st))
 
-local :: (env -> env) -> StReader s env a -> StReader s env a
-local f (StReader g) = StReader (\s e -> g s $ f e)  
+put :: MonadThrow m => s -> InternalStReader m s e ()
+put st = InternalStReader (\ _ _ -> return ((), st))
+
+get :: MonadThrow m => InternalStReader m s e s
+get = InternalStReader (\ st _ -> return (st, st))
+
+local :: MonadThrow m => (env -> env) -> InternalStReader m s env a -> InternalStReader m s env a
+local f (InternalStReader g) = InternalStReader (\s e -> g s $ f e)  
+
+
+
+data CustomException = CustomException {
+                            errorMessage :: String
+                       } deriving (Show)
+
+instance Exception CustomException where
 
 --(\ st -> let (a, st') = s st 
 --          in runState (f a) st'

@@ -111,12 +111,14 @@ data AbstractOperation = AbstractOneWayOperation
 data InputMessage = InputMessage
                   { inputMessageName :: Maybe Text
                   , inputMessageType :: Name
+                  , inputWsamAction  :: Maybe Text
                   } deriving INSTANCES
 
 -- | An abstract message representing output from the given operation.
 data OutputMessage = OutputMessage
                    { outputMessageName :: Maybe Text
                    , outputMessageType :: Name
+                   , outputWsamAction  :: Maybe Text
                    } deriving INSTANCES
 
 -- | An abstract message representing faults returned by the given operation.
