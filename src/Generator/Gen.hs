@@ -10,6 +10,7 @@ import Control.Applicative
 import Generator.DGraph
 import           Control.Monad.Catch          (MonadThrow)
 import Control.Exception
+import Common.Exception
 data DataType = DataType 
               { typeName :: String,
                 constructors :: [(String, Type)]
@@ -262,7 +263,6 @@ upperFirstChar (a:as) = (toUpper a):as
 throwCustomExceptionM :: (MonadThrow m) => String -> InternalStReader m s e a
 throwCustomExceptionM = throwExc . throwCustomException
 
-throwCustomException = toException . CustomException
 
 --run1 = f $ (runStReader $ asx [func, func2, func3, func4] []) [("print",typ)] []
 --      where f Nothing = error "Nothing"
@@ -278,8 +278,6 @@ throwCustomException = toException . CustomException
 --            f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
 
 --runL f d = run [f] [d]
-
-r = runStReader
 
 
 func = DefFun "sum" [("a", Single $ TInt), ("b", Single $ TInt), ("c", Single $ TString)] (Call "show" [Free "a", Free "b"])

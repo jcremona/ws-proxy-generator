@@ -11,32 +11,14 @@ import Data.ByteString.Lazy (fromStrict)
 import Network.URI
 import           Control.Monad.Catch          (MonadThrow)
 import Control.Exception
+import Common.Exception
 import Control.Monad        hiding (forM_)
 import Control.Monad.Reader
 import Data.Either
-
 import Text.XML.WSDL.Types hiding (types)
+import qualified Data.ByteString as B
+import Data.Text.Encoding (encodeUtf8)
 
-parsedWsdl :: (MonadThrow m) => m WSDL
-parsedWsdl = parseLBS $ fromStrict $(embedFile "/home/jcremona/ws-proxy-generator/test/hello_world.wsdl")
-
-
-imodel :: (MonadThrow m) => m WSAbstraction
-imodel = parsedWsdl >>= (return . runReader build)
-
-maybeToEither = flip maybe Right . Left
-
-translate' :: Either SomeException [[Module]]
-translate' = do model <- imodel
-                nspace <- maybeToEither (throwCustomException "Undefined Namespace") $ namespace model
-                mapM ((portsToModules nspace $ types model) . ports) (defServices model)
-
-writeModuleList ms = mapM (\module_ -> write module_ >> putStrLn ("Module Generated: " ++ (moduleName module_))) ms
-             
-writeModuleLists mss = do mapM writeModuleList mss
-                          return ()
-
-main = either (putStrLn . show) writeModuleLists translate' 
 
 portsToModules :: URI -> [Params] -> [(Port, URI)] -> Either SomeException [Module]
 portsToModules namespace params = mapM (\(port, uri) -> runGenerationModule $ Module (unpack $ bName port) (bindingsToFunDefinitions namespace uri $ protocolBinding port) datatypes)
@@ -76,21 +58,28 @@ wsType2Type (WSPrimitiveType WSChar) = Single TChar
 wsType2Type (WSPrimitiveType WSFloat) = Single TFloat
 wsType2Type (WSPrimitiveType WSVoid) = Single TVoid
 wsType2Type (WSPrimitiveType WSBoolean) = Single TBool  
- 
 
+packStr'' :: String -> B.ByteString
+packStr'' = encodeUtf8 . pack
 
-p = Params {wrapperName = pack "SayHelloRequest2", parameters = [Parameter {parameterName = Name {nameLocalName = pack "firstNam", nameNamespace = Nothing, namePrefix = Nothing}, ttype = WSPrimitiveType {primitiveType = WSInt}}]}
-f = Function {functionName = pack "sayHello", params = NamedMsgs {messageName = Just $ pack "c", messageType = Params {wrapperName = pack "SayHelloRequest2", parameters = [Parameter {parameterName = Name {nameLocalName = pack "firstNam", nameNamespace = Nothing, namePrefix = Nothing}, ttype = WSPrimitiveType {primitiveType = WSInt}}]}}, returnType = NamedMsgs {messageName = Just $ pack "d", messageType = Params {wrapperName = pack "SayHelloResponse", parameters = [Parameter {parameterName = Name {nameLocalName = pack "greeting", nameNamespace = Nothing, namePrefix = Nothing}, ttype = WSPrimitiveType {primitiveType = WSString}}]}}, soapAction = ""}
+parsedWsdl :: (MonadThrow m) => String -> m WSDL
+parsedWsdl = parseLBS . fromStrict . packStr''
 
+imodel :: (MonadThrow m) => String -> m WSAbstraction
+imodel wsdlFile = parsedWsdl wsdlFile >>= (runReader buildModel)
 
-op = ConcreteOperation {cOperationName = pack "sayHello", cOperationInput = Just (ConcreteInputMessage {cInputMessageName = Nothing, additionalConcreteInputInfo = [NodeElement (Element {elementName = Name {nameLocalName = pack "body", nameNamespace = Just $ pack  "http://schemas.xmlsoap.org/wsdl/soap/", namePrefix = Just $ pack  "soap"}, elementAttributes = [(Name {nameLocalName = pack "namespace", nameNamespace = Nothing, namePrefix = Nothing},[ContentText $ pack "http://examples.com/"]),(Name {nameLocalName = pack "use", nameNamespace = Nothing, namePrefix = Nothing},[ContentText $ pack "literal"])], elementNodes = []})]}), cOperationOutput = Just (ConcreteOutputMessage {cOutputMessageName = Nothing, additionalConcreteOutputInfo = [NodeElement (Element {elementName = Name {nameLocalName = pack "body", nameNamespace = Just $ pack  "http://schemas.xmlsoap.org/wsdl/soap/", namePrefix = Just $ pack  "soap"}, elementAttributes = [(Name {nameLocalName = pack "namespace", nameNamespace = Nothing, namePrefix = Nothing},[ContentText $ pack "http://examples.com/"]),(Name {nameLocalName = pack "use", nameNamespace = Nothing, namePrefix = Nothing},[ContentText $ pack "literal"])], elementNodes = []})]}), cOperationFault = [], additionalOperationInfo = [NodeElement (Element {elementName = Name {nameLocalName = pack "operation", nameNamespace = Just $ pack "http://schemas.xmlsoap.org/wsdl/soap/", namePrefix = Just $ pack  "soap"}, elementAttributes = [(Name {nameLocalName =pack  "soapAction", nameNamespace = Nothing, namePrefix = Nothing},[])], elementNodes = []})]}
+maybeToEither = flip maybe Right . Left
 
-fun = Function {functionName = pack "sayHello", params = NamedMsgs {messageName = Just $ pack  "sayHelloRequest", messageType = Params {wrapperName = pack "sayHello", parameters = [Parameter {parameterName = Name {nameLocalName = pack "firstNam", nameNamespace = Nothing, namePrefix = Nothing}, ttype = WSPrimitiveType {primitiveType = WSInt}}]}}, returnType = NamedMsgs {messageName = Just $ pack  "sayHelloResponse", messageType = Params {wrapperName = pack "sayHelloResponse", parameters = [Parameter {parameterName = Name {nameLocalName = pack "SayHelloResponse", nameNamespace = Nothing, namePrefix = Nothing}, ttype = WSPrimitiveType {primitiveType = WSString}}]}}, soapAction = ""}
---sayHello :: 
---sayHello dt = callWS uri name namespace [(p1, ent dt), (p2, str dt)] responseName
+translate :: String -> Either SomeException [[Module]]
+translate wsdlFile = do model <- imodel wsdlFile
+                        nspace <- maybeToEither (throwCustomException "Undefined Namespace") $ namespace model
+                        mapM ((portsToModules nspace $ types model) . ports) (defServices model)
 
---hd' :: [Int] -> Int
---hd' = head 
+writeModuleList ms = mapM (\module_ -> write module_ >> putStrLn ("Module Generated: " ++ (moduleName module_))) ms
+--             
+writeModuleLists mss = do mapM writeModuleList mss
+                          return ()
 
---myf :: [a] -> a
---myf hd' = hd' hd'	
+-- FIXME ver como leer un archivo correctamente
+mains path = do wsdlFile <- readFile path
+                either (putStrLn . show) writeModuleLists (translate wsdlFile) 

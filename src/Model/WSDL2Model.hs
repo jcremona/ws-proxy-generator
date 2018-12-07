@@ -1,4 +1,4 @@
-module Model.WSDL2Model where
+module Model.WSDL2Model (buildModel) where
 
 import Model.ProxyModel
 import Control.Monad.Reader
@@ -8,6 +8,7 @@ import Data.Maybe
 import Data.XML.Types
 import Text.XML.WSDL.Types
 import Control.Monad.Catch (MonadThrow, throwM)
+import Common.Exception
 type Error = String
 
 
@@ -16,132 +17,121 @@ data Style = RPCLiteral | RPCEncoded | DocumentLiteral | DocumentLiteralWrapped
 -- TODO ver MountFunctions, ya que tomaremos solo tipos basicos tomados direct de los parts de los Messages
            
 
--- Agregar un Maybe Text junto con el Params devuelto
-findInputParam :: [Params] -> InputMessage -> NamedMsgs
-findInputParam ps input = case find (paramsSearch $ nameLocalName $ inputMessageType input) ps of
-                              Nothing -> error "input"
-                              Just p -> NamedMsgs (inputMessageName input) p
-
-findOutputParam :: [Params] -> OutputMessage -> NamedMsgs
-findOutputParam ps output = case find (paramsSearch $ nameLocalName $ outputMessageType output) ps of
-                              Nothing -> error "output"
-                              Just p -> NamedMsgs (outputMessageName output) p
+findM  :: (MonadThrow m) => (a -> Bool) -> [a] -> String -> m a
+findM f ps e = case find f ps of
+                 Nothing -> throwM $ throwCustomException e
+                 Just p -> return p 
 
 voidType :: NamedMsgs
 voidType = NamedMsgs Nothing $ Params (pack "") [Parameter (Name (pack "") Nothing Nothing) (WSPrimitiveType WSVoid)]
-
-absOps :: [Params] -> AbstractOperation -> Function
-absOps ps (AbstractOneWayOperation name input order) = Function name (findInputParam ps input) voidType ""
-absOps ps (AbstractRequestResponseOperation name input output faults order) = Function name (findInputParam ps input) (findOutputParam ps output) ""
-absOps ps (AbstractSolicitResponseOperation name output input faults order) = Function name (findInputParam ps input) (findOutputParam ps output) "" --FIXME
-absOps ps (AbstractNotificationOperation name output order) = Function name voidType (findOutputParam ps output) ""
-                                                          
-
+       
 paramsSearch :: Text -> Params -> Bool
 paramsSearch t p = wrapperName p == t
 
+getParams :: (MonadThrow m) => Reader WSDL (m [Params])
+getParams = do ms <- asks messages
+               return $ mapM buildParams ms
 
-interface_ :: Reader WSDL [Interface]
-interface_ = do pts <- asks portTypes
-                ms <- msgs
-                mapM (oper ms) pts
+buildParams msg = do parameters <- mapM buildParameter $ wsdlMessageParts msg
+                     return $ (Params (wsdlMessageName msg)) parameters
 
-oper :: [Params] -> WSDLPortType -> Reader WSDL Interface
-oper params portType = return $ Interface (wsdlPortTypeName portType) (map (absOps params) (wsdlPortTypeOperations portType))
+buildParameter part = do typ <- convertPrimitiveType $ unpack $ nameLocalName qname 
+                         return $ Parameter (wsdlMessagePartName part) (WSPrimitiveType typ)
+                  where qname = fromJust . wsdlMessagePartType $ part
 
-binding :: Reader WSDL [Port]
-binding = do bs <- asks bindings
-             is <- interface_
-             mapM (bb is) bs
+buildFunction ps (AbstractOneWayOperation name input order) = do inp <- (findInputParam ps input)
+                                                                 return $ Function name inp voidType ""
+buildFunction ps (AbstractRequestResponseOperation name input output faults order) = do inp <- findInputParam ps input
+                                                                                        out <- findOutputParam ps output
+                                                                                        return $ Function name inp out ""
+buildFunction ps (AbstractSolicitResponseOperation name output input faults order) = do inp <- findInputParam ps input
+                                                                                        out <- findOutputParam ps output
+                                                                                        return $ Function name inp out "" --FIXME
+buildFunction ps (AbstractNotificationOperation name output order) = do out <- findOutputParam ps output 
+                                                                        return $ Function name voidType out ""
+                     
 
-concOps :: [Function] -> ConcreteOperation -> ProtocolBinding
-concOps is op = ProtocolBinding (cOperationName op) (findFunc is op)
+getInterfaces :: (MonadThrow m) => Reader WSDL (m [Interface])
+getInterfaces = do pts <- asks portTypes
+                   ms <- getParams
+                   return $ do ms' <- ms
+                               mapM (buildInterface ms') pts
 
-findFunc :: [Function] -> ConcreteOperation -> Function
-findFunc fs op = case find (funcSearch op) fs of
-                    Nothing -> error "funcs"
-                    Just f -> f
+buildInterface params portType = do fs <- (mapM (buildFunction params) (wsdlPortTypeOperations portType))
+                                    return $ Interface (wsdlPortTypeName portType) fs
+
+getPort :: (MonadThrow m) => Reader WSDL (m [Port])
+getPort = do bs <- asks bindings
+             is <- getInterfaces
+             return $ do is' <- is
+                         mapM (buildPort is') bs
+
+buildPort is b = do i <- findInterface is b
+                    protBindings <- mapM (buildProtocolBinding $ functions $ i) (wsdlBindingOperations b)
+                    return $ Port (wsdlBindingName b) protBindings
+
+buildProtocolBinding is op = do function <- (findFunc is op)
+                                return $ ProtocolBinding (cOperationName op) function
+
+getServices :: (MonadThrow m) => Reader WSDL (m [Service])
+getServices = do svs <- asks services
+                 bs <- getPort
+                 return $ do bs' <- bs
+                             mapM (buildService bs') svs
+
+buildService ps ws = do ps' <- mapM (findPort ps) (wsdlServicePorts ws)
+                        return $ Service (wsdlServiceName ws) ps' 
 
 
--- TODO arrays! unbounded
+findInputParam ps input = do p <- findM (paramsSearch $ nameLocalName $ inputMessageType input) ps "Error looking for input parameters"
+                             return $ NamedMsgs (inputMessageName input) p
 
---type de wsdl binding
--- interface <---> wsdlbinding
-bb :: [Interface] -> WSDLBinding -> Reader WSDL Port
-bb is b = return $ Port (wsdlBindingName b) (map (concOps $ functions $ findInterface is b) (wsdlBindingOperations b))
-        
+findOutputParam ps output = do p <- findM (paramsSearch $ nameLocalName $ outputMessageType output) ps "Error looking for output parameters"
+                               return $ NamedMsgs (outputMessageName output) p
 
-findInterface :: [Interface] -> WSDLBinding -> Interface
-findInterface is b =  case find (ifaceSearch b) is of
-                Nothing -> error "interf"
-                Just i -> i
------------------- TODO
-ifaceSearch :: WSDLBinding -> Interface -> Bool
-ifaceSearch b is = (nameLocalName . wsdlBindingType $ b) == interfaceName is -- FIXME
+findFunc fs op = findM (funcSearch op) fs "Error looking for function"
 
-pp :: [Port] -> WSDLService -> Reader WSDL Service
-pp ps ws = return $ Service (wsdlServiceName ws) (map (findPort ps) (wsdlServicePorts ws)) 
+findInterface is b =  findM (ifaceSearch b) is "Error looking for portType"
 
-ss :: Reader WSDL [Service]
-ss = do svs <- asks services
-        bs <- binding
-        mapM (pp bs) svs
-
-ptSearch :: WSDLPort -> Port -> Bool
-ptSearch wp p = (nameLocalName . wsdlPortBinding $ wp) == bName p -- FIXME
-
---findPort :: [Port] -> WSDLPort -> (Port,Maybe URI)
-findPort ps wp = case find (ptSearch wp) ps of
-                    Nothing -> error "ports"
-                    Just p -> (p, getWsdlAddress wp)   
-
-getWsdlAddress wp = fn $ address wp
-                 where fn Nothing = error "Undefined address"
-                       fn (Just addr) = addr
+findPort ps wp = do p <- findM (ptSearch wp) ps "Error looking for port"
+                    case address wp of
+                        Nothing -> throwM $ throwCustomException "Undefined address" 
+                        Just addr -> return (p, addr)   
 
 funcSearch :: ConcreteOperation -> Function -> Bool
 funcSearch operation f = cOperationName operation == (functionName f) && concreteInputName operation == (messageName . params $ f) && concreteOutputName operation == (messageName . returnType $ f) 
 
+ifaceSearch :: WSDLBinding -> Interface -> Bool
+ifaceSearch b is = (nameLocalName . wsdlBindingType $ b) == interfaceName is 
+
+ptSearch :: WSDLPort -> Port -> Bool
+ptSearch wp p = (nameLocalName . wsdlPortBinding $ wp) == bName p
+  
 concreteOp :: ConcreteOperation -> FunctionIdentifier
 concreteOp operation = FunctionIdentifier (cOperationName operation) (concreteInputName operation) (concreteOutputName operation)
 
 concreteInputName :: ConcreteOperation -> Maybe Text
 concreteInputName = (>>= cInputMessageName) . cOperationInput
-                              --do inp <- cOperationInput operation
-                              --   cInputMessageName inp
 
 concreteOutputName :: ConcreteOperation -> Maybe Text
 concreteOutputName = (>>= cOutputMessageName) . cOperationOutput
 
-parts :: WSDLMessagePart -> Parameter
-parts part = Parameter (wsdlMessagePartName part) (WSPrimitiveType $ convertPrimitiveType $ unpack $ nameLocalName qname)
-                  where qname = fromJust . wsdlMessagePartType $ part
+convertPrimitiveType :: (MonadThrow m) => String -> m PrimitiveType
+convertPrimitiveType "int" = return WSInt
+convertPrimitiveType "double" = return WSDouble
+convertPrimitiveType "long" = return WSLong
+convertPrimitiveType "string" = return WSString
+convertPrimitiveType "char" = return WSChar
+convertPrimitiveType "float" = return WSFloat
+convertPrimitiveType "void" = return WSVoid
+convertPrimitiveType "boolean" = return WSBoolean
+convertPrimitiveType st = throwM . throwCustomException $ "Unknown primitive type: " ++ st
 
-msgs :: Reader WSDL [Params]
-msgs = do ms <- asks messages
-          mapM ftt ms
+buildModel :: (MonadThrow m) => Reader WSDL (m WSAbstraction)
+buildModel = do servs <- getServices
+                ts <- getParams
+                ns <- asks targetNamespace
+                return $ do servs' <- servs
+                            ts' <- ts
+                            return $ WSAbstraction servs' ts' ns
 
-ftt :: WSDLMessage -> Reader WSDL Params
-ftt msg = return $ Params (wsdlMessageName msg) (map parts $ wsdlMessageParts msg)
-
-build :: Reader WSDL WSAbstraction
-build = do servs <- ss
-           ts <- msgs
-           ns <- asks targetNamespace
-           return $ WSAbstraction servs ts ns
-
---recorrer el binding, en el entorno deberían estar las funciones. el entorno debería ser un mapa id/name -> funcion, algo parecido para los parametros. 
---el problema es como meter los valores en el entorno. además serían entornos distinto tipo para las func y los parametros, ver como abstraerlo. la idea es no pasar el entorno explicitamente.
---otro problema es como secuencialmente construir primero los parametros, luego las func y luego el binding.
-
-
-convertPrimitiveType :: String -> PrimitiveType
-convertPrimitiveType "int" = WSInt
-convertPrimitiveType "double" = WSDouble
-convertPrimitiveType "long" = WSLong
-convertPrimitiveType "string" = WSString
-convertPrimitiveType "char" = WSChar
-convertPrimitiveType "float" = WSFloat
-convertPrimitiveType "void" = WSVoid
-convertPrimitiveType "boolean" = WSBoolean
-convertPrimitiveType st = error $ "prim type unknown " ++ st

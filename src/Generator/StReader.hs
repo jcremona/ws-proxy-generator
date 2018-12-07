@@ -5,6 +5,7 @@ module Generator.StReader where
 import Control.Applicative 
 import Control.Monad (liftM,ap)
 import Control.Exception
+import Common.Exception
 import           Control.Monad.Catch          (MonadThrow, throwM)
 --newtype State s a = State { runState :: s -> (a, s) }
 --newtype Reader e a = Reader { runReader :: e -> a }
@@ -47,12 +48,6 @@ local :: MonadThrow m => (env -> env) -> InternalStReader m s env a -> InternalS
 local f (InternalStReader g) = InternalStReader (\s e -> g s $ f e)  
 
 
-
-data CustomException = CustomException {
-                            errorMessage :: String
-                       } deriving (Show)
-
-instance Exception CustomException where
 
 --(\ st -> let (a, st') = s st 
 --          in runState (f a) st'
