@@ -36,7 +36,7 @@ data Expr = Call String [Expr] | Free String | StringValue String | ListValue [E
 
 type TypedParams = [(String, Type)]
 
-write m = writeFile ("/home/jcremona/" ++ moduleName m ++ ".hs") $ prettyPrinterModule m
+write m = writeFile ("./" ++ moduleName m ++ ".hs") $ prettyPrinterModule m
 
 prettyPrinterModule :: Module -> String
 prettyPrinterModule (Module name funcs dts) = "module " ++ name ++ " where\n\n" ++ "import Callws\n\n" ++ (dts >>= (++ "\n\n") . prettyPrinterDataType) ++ (funcs >>= (++ "\n\n") . prettyPrinterFun)
@@ -280,14 +280,14 @@ throwCustomExceptionM = throwExc . throwCustomException
 --runL f d = run [f] [d]
 
 
-func = DefFun "sum" [("a", Single $ TInt), ("b", Single $ TInt), ("c", Single $ TString)] (Call "show" [Free "a", Free "b"])
-func2 = DefFun "show" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "print" [Free "a", Free "b"])
-func3 = DefFun "exc" [("a", Single $ TInt), ("b", Single $ TString)] (Call "sum" [Free "a", Free "a"])
-func4 = DefFun "apply" [("sum", Rec (Single TString) (Single TInt)), ("b", Single $ TString)] (Call "sum" [Free "b"])
-typ = Rec (Single TInt) (Rec (Single TInt) (Single TString))
+--func = DefFun "sum" [("a", Single $ TInt), ("b", Single $ TInt), ("c", Single $ TString)] (Call "show" [Free "a", Free "b"])
+--func2 = DefFun "show" [("a", Single $ TInt), ("b", Single $ TInt)] (Call "print" [Free "a", Free "b"])
+--func3 = DefFun "exc" [("a", Single $ TInt), ("b", Single $ TString)] (Call "sum" [Free "a", Free "a"])
+--func4 = DefFun "apply" [("sum", Rec (Single TString) (Single TInt)), ("b", Single $ TString)] (Call "sum" [Free "b"])
+--typ = Rec (Single TInt) (Rec (Single TInt) (Single TString))
 
-func5 = DefFun "len" [("a", TList $ T $ Single TInt)] (Call "length" [Free "a"])
-typ2 = Rec (TList Empty) (Single TInt)
-typ3 = Rec (Single TString) (Rec (Single TString) (Single TString))
+--func5 = DefFun "len" [("a", TList $ T $ Single TInt)] (Call "length" [Free "a"])
+--typ2 = Rec (TList Empty) (Single TInt)
+--typ3 = Rec (Single TString) (Rec (Single TString) (Single TString))
 
 

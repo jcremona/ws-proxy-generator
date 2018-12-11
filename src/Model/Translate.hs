@@ -1,4 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
+module Model.Translate (wsdlToModules) where
+
 import Generator.Gen
 import Model.WSDL2Model
 import Data.Text hiding (map, head)
@@ -80,6 +82,5 @@ writeModuleList ms = mapM (\module_ -> write module_ >> putStrLn ("Module Genera
 writeModuleLists mss = do mapM writeModuleList mss
                           return ()
 
--- FIXME ver como leer un archivo correctamente
-mains path = do wsdlFile <- readFile path
-                either (putStrLn . show) writeModuleLists (translate wsdlFile) 
+wsdlToModules path = do wsdlFile <- readFile path
+                        either (putStrLn . show) writeModuleLists (translate wsdlFile) 
