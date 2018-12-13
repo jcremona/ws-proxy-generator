@@ -136,8 +136,10 @@ parseXmlResponse = parseResponse . encode
 
 displayResponse xml responseTag elementTags  = either ((:[]) . displayException) id (parseXmlResponse xml responseTag elementTags)
 
-inputXml = "<?xml version=\"1.0\" ?><S:Envelope xmlns:S=\"http://schemas.xmlsoap.org/soap/envelope/\"><S:Body><ns2:sayHelloResponse xmlns:ns2=\"http://examples.com/\"><return>nuevo metodo, response: s</return></ns2:sayHelloResponse></S:Body></S:Envelope>"
+--inputXml = "<?xml version=\"1.0\" ?><S:Envelope xmlns:S=\"http://schemas.xmlsoap.org/soap/envelope/\"><S:Body><ns2:sayHelloResponse xmlns:ns2=\"http://examples.com/\"><return>nuevo metodo, response: s</return></ns2:sayHelloResponse></S:Body></S:Envelope>"
 
+
+--inputXml' = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><soap:Envelope xmlns:nsalias=\"http://example.com/pysimplesoapsamle/\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><soap:Body><EchoResponse xmlns=\"nsalias\"><output0>hello</output0><output1>4</output1></EchoResponse></soap:Body></soap:Envelope>"
 
 --parseEnvelope :: MonadThrow m => [String] -> ConduitM Event o (ReaderT ParseState m) [String]
 parseResponse t rsp bs = runReaderT (parseLBS def t $$ (parseEnvelope rsp bs)) emptyParseState
