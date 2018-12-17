@@ -20,6 +20,7 @@ data DefFun = DefFun
             { funname       :: String
             , funparameters :: [(String, Type)] -- un param puede ser una funcion, deberia poder usarse esa funcion localmente
             , body       :: Expr
+            , retType :: Type
             } deriving Show
 
 data Module = Module
@@ -28,7 +29,7 @@ data Module = Module
             , dataTypes :: [DataType]
             } deriving Show
 
-data Type = Single HType | Rec Type Type | TList LType | TTuple (Type, Type) deriving (Show, Eq)
+data Type = Single HType | Rec Type Type | TList LType | TTuple (Type, Type) | IOMonad Type deriving (Show, Eq)
 data LType = Empty | T Type deriving (Show, Eq)
 data HType = UserDefined String | TInt | TString | TDouble | TLong | TChar | TFloat | TVoid | TBool deriving (Show, Eq) -- LISTAS??
 
@@ -42,7 +43,7 @@ prettyPrinterModule :: Module -> String
 prettyPrinterModule (Module name funcs dts) = "module " ++ name ++ " where\n\n" ++ "import Callws\n\n" ++ (dts >>= (++ "\n\n") . prettyPrinterDataType) ++ (funcs >>= (++ "\n\n") . prettyPrinterFun)
 
 prettyPrinterFun :: DefFun -> String
-prettyPrinterFun fun = funname fun ++ prettyPrinterParam (funparameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
+prettyPrinterFun fun = funname fun ++ " :: " ++ prettyPrinterType (retType fun) ++ "\n" ++ funname fun ++ prettyPrinterParam (funparameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
 
 prettyPrinterDataType :: DataType -> String
 prettyPrinterDataType (DataType name constructors) = "data " ++ name ++ " = " ++ name ++ "{\n" ++ (intercalate "," $ map prettyPrinterConstructor constructors) ++ "} deriving (Show)\n"
@@ -64,7 +65,8 @@ prettyPrinterType (Rec ttype ttype') = "(" ++ prettyPrinterType ttype ++ " -> " 
 prettyPrinterType (TList Empty) = "[" ++ "a" ++ "]" -- FIXME arreglar esto, si una func toma dos listas como parametros, las listas pueden ser del mismo tipo a o no
 prettyPrinterType (TList (T ttype)) = "[" ++ prettyPrinterType ttype ++ "]"
 prettyPrinterType (TTuple (ttype, ttype')) = "(" ++ prettyPrinterType ttype ++ ", " ++ prettyPrinterType ttype' ++ ")"
-
+prettyPrinterType (IOMonad ttype) = "IO " ++ "(" ++ prettyPrinterType ttype ++ ")"
+ 
 prettyPrinterHType :: HType -> String
 prettyPrinterHType (UserDefined udtype) = udtype
 prettyPrinterHType TInt = "Int"
@@ -77,18 +79,19 @@ prettyPrinterHType TVoid = "()"
 prettyPrinterHType TBool = "Bool"
 
 --typeChecking :: DefFun -> StReader [(String, Type)] TypedParams Type
-typeChecking (DefFun name params body) = do bodyType <- local (const params) $ typeCheckingExpr body
-                                            funcs <- get
-                                            funcType <- return $ foldr (\ (_,t) ty -> Rec t ty) bodyType params
-                                            put $ (name, funcType):funcs  -- FIXME el client de este metodo deberia hacer este put
-                                            return $ funcType
+typeChecking (DefFun name params body returnType) = do bodyType <- local (const params) $ typeCheckingExpr body
+                                                       funcs <- get
+                                                       returnType' <- return $ foldr (\ (_,t) ty -> Rec t ty) bodyType params
+                                                       if equalType returnType returnType' then 
+                                                             (put $ (name, returnType'):funcs) >> return returnType'
+                                                       else throwCustomExceptionM $ "Couldn't match type of the function " ++ name ++ " with the type of the body" 
 
 --typeCheckingExpr :: Expr -> StReader [(String, Type)] TypedParams Type
 typeCheckingExpr (Call name subexprs) = do params <- ask
                                            funcs <- get
                                            fn $ lookup name params <|> lookup name funcs 
                                           where fn Nothing = throwCustomExceptionM $ "Undefinded function: " ++ name      
-                                                fn (Just t) = check subexprs t  --FIXME es necesario chequear que t es de la forma Rec () () ? 
+                                                fn (Just t) = check subexprs t 
 typeCheckingExpr (Free vble) =  lookupVble vble
 typeCheckingExpr (StringValue _) = return $ Single TString
 --typeCheckingExpr (ListValue []) = return $ TList Empty
@@ -105,7 +108,7 @@ check (exp:exps) (Rec ttype ttype') = do ty <- typeCheckingExpr exp
                                          if equalType ty ttype then check exps ttype' else throwCustomExceptionM "Function type doesn't match with parameters"    
 check _ _ = throwCustomExceptionM "Function type doesn't match with parameters"
 
-equalType (TList Empty) (TList (T _)) = False -- FIXME arreglar esto, o al menos comentar bien que el orden en el que se pasan los args importa
+equalType (TList Empty) (TList (T _)) = False
 equalType (TList _) (TList Empty) = True
 equalType (TList (T t1)) (TList (T t2)) = equalType t1 t2
 equalType t1 t2 = t1 == t2
@@ -117,7 +120,7 @@ reservedWords = ["case","class","data","default","deriving","do","else","forall"
 
 --lookupVble :: Eq key => key -> StReader s [(key, value)] value
 lookupVble vble = do params <- ask
-                     case lookup vble params of                  --- FIXME
+                     case lookup vble params of                  
                          Nothing -> throwCustomExceptionM "Couldn't find parameter" 
                          Just t -> return t
 
@@ -154,7 +157,7 @@ syntaxAnalyzer fun = do fname <- validIdentifier . funname $ fun
 
 analyzeFuncSyntax :: (MonadThrow m) =>[DefFun] -> InternalStReader m s e ()
 analyzeFuncSyntax funcs = do mapM syntaxAnalyzer funcs
-                             guardT (allDifferent $ map funname funcs) "Functions must have different names" () -- FIXME DEBEN llamarse diferente a las func EXternas tmb???? puede introducir ambiguedad al crear los pares de aristas (dependencias) 
+                             guardT (allDifferent $ map funname funcs) "Functions must have different names" ()
 
 dataTypeSyntaxAnalyzer :: (MonadThrow m) => DataType -> InternalStReader m s e DataType
 dataTypeSyntaxAnalyzer dt = do mapM (lower . fst) $ constructors dt
@@ -169,10 +172,8 @@ analyzeDataTypesSyntax dts = do mapM dataTypeSyntaxAnalyzer dts
 asx funcs dts = do externFuncs <- get
                    dtFuncs <- processDataTypes dts
                    put $ externFuncs ++ dtFuncs
-                   processFunctions funcs (externFuncs ++ dtFuncs)--of ------ FIXME ver este case
---                     Nothing -> throwExc
---                     Just vs -> mapM (\v -> typeChecking (funcs !! v)) vs
-                   get --FIXME NO asumir que los nodes son Int!
+                   processFunctions funcs (externFuncs ++ dtFuncs)
+                   get 
                        
 
 processModule moduleName funcs dts = do fs <- asx funcs dts
@@ -198,11 +199,10 @@ showFloatType = Rec (Single TFloat) (Single TString)
 showBoolType = Rec (Single TBool) (Single TString)
 showVoidType = Rec (Single TVoid) (Single TString)
 
-callWSType = Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (TList Empty) $ Rec (Single TString) $ Rec (TList $ T $ Single TString) (TList $ T $ Single TString)
+callWSType = Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (TList Empty) $ Rec (Single TString) $ Rec (TList $ T $ Single TString) (IOMonad $ TList $ T $ Single TString)
 
 builtInFunctions = [("invokeWS",callWSType),("showInt",showIntType),("showDouble",showDoubleType),("showLong",showLongType),("showChar",showCharType),("showFloat",showFloatType),("showBool",showBoolType),("showVoid",showVoidType)]
-
---runGenerationModule :: MonadThrow m => Module -> m Module 
+ 
 runGenerationModule (Module moduleName funcs dts) = runStReader (processModule moduleName funcs dts) builtInFunctions [] >>= return . fst
 
 buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (initEdges $ length names) funcs
@@ -213,16 +213,11 @@ buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (init
 graphTopSort graph = do guardT (not $ cyclicGraph $ graph) "Graph error" ()
                         return $ topSort graph
 
--- Se pasa externFuncs como parametro, en vez de obtenerlo mediante get, debido a que no se quiere obligar a los metodos
--- a usar explicitamente StReader (se usa cualquier instancia de MonadThrowable). 
-
 --processFunctions :: (MonadThrowable m) => [DefFun] -> [(String,Type)] -> m [Type]
 processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
                                         graph <- buildGraph funcs (map fst externFuncs)
                                         vs <- graphTopSort graph
                                         mapM (\v -> typeChecking (funcs !! v)) vs
-
---typeChecking usa explicitamente StReader
 
 processDataTypes dts = do analyzeDataTypesSyntax dts
                           return $ dts >>= dtype2Fun 

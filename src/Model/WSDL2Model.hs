@@ -12,10 +12,7 @@ import Common.Exception
 type Error = String
 
 
-data Style = RPCLiteral | RPCEncoded | DocumentLiteral | DocumentLiteralWrapped
--- TODO ver en AssignParameters para que sirven los pretypes (para cuando no se encuentra un tipo en un paso previo)
--- TODO ver MountFunctions, ya que tomaremos solo tipos basicos tomados direct de los parts de los Messages
-           
+--data Style = RPCLiteral | RPCEncoded | DocumentLiteral | DocumentLiteralWrapped
 
 findM  :: (MonadThrow m) => (a -> Bool) -> [a] -> String -> m a
 findM f ps e = case find f ps of

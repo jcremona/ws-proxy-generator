@@ -30,16 +30,17 @@ bindingsToFunDefinitions :: URI -> URI -> [ProtocolBinding] -> [DefFun]
 bindingsToFunDefinitions namespace address = map (toFunctionDefinition namespace address . pFunction)
 
 toFunctionDefinition :: Network.URI.URI -> Network.URI.URI -> Function -> DefFun
-toFunctionDefinition  namespace address (Function functionName params returnType _) =  DefFun (lowerFirstChar fname) [("dt", Single . UserDefined . typeName $ dt)] 
+toFunctionDefinition  namespace address (Function functionName params returnType _) =  DefFun (lowerFirstChar fname) [("dt", inputType)] 
                                                                      (Call "invokeWS" [StringValue $ show address, 
                                                                                        StringValue fname, 
                                                                                        StringValue "", 
                                                                                        StringValue $ show namespace, 
                                                                                        ListValue $ map (\(c,t) -> TupleValue(StringValue c, convertToString t $ Call c [Free "dt"])) $ constructors dt, 
                                                                                        StringValue return, 
-                                                                                       ListValue responseParameterNames])
+                                                                                       ListValue responseParameterNames]) (Rec inputType $ IOMonad $ TList $ T $ Single $ TString)
                                                            where dt = params2DataType $ messageType params
                                                                  fname = unpack functionName
+                                                                 inputType = Single . UserDefined . typeName $ dt
                                                                  return = unpack . wrapperName . messageType $ returnType
                                                                  responseParameterNames = map (StringValue . unpack . nameLocalName . parameterName) (parameters . messageType $ returnType)
 

@@ -91,8 +91,8 @@ invokeWS :: String -> String -> String -> String -> [Parameter] -> String -> [St
 invokeWS uriStr methodName soapAction namespace parameters response responseTags = do
 	xmlResp <- browse $ fn methodName soapAction namespace parameters
 	--putStrLn xmlResp
-	putStrLn $ "in: " ++ contentTst
-	putStrLn $ "out: " ++ xmlResp
+	--putStrLn $ "in: " ++ contentTst
+	--putStrLn $ "out: " ++ xmlResp
 	return $ displayResponse xmlResp response responseTags --head $ (getNodeValues xmlResp response)
 	where uri = fromMaybe (error "Nothing from url parse") (parseURI uriStr)
 	      contentTst = soapXmlHeader
