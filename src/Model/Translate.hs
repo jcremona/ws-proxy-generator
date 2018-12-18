@@ -3,7 +3,7 @@ module Model.Translate (wsdlToModules) where
 
 import Generator.Gen
 import Model.WSDL2Model
-import Data.Text hiding (map, head)
+import Data.Text hiding (map, head,zip)
 import Data.XML.Types
 import qualified Data.Map as Map
 import Model.ProxyModel
@@ -27,23 +27,31 @@ portsToModules namespace params = mapM (\(port, uri) -> runGenerationModule $ Mo
                                  where datatypes = map params2DataType params
 
 bindingsToFunDefinitions :: URI -> URI -> [ProtocolBinding] -> [DefFun]
-bindingsToFunDefinitions namespace address = map (toFunctionDefinition namespace address . pFunction)
+bindingsToFunDefinitions namespace address pbs = pbs >>= \pb -> [(toFunctionDefinition namespace address . pFunction) pb, (auxiliarFunctionDefinition . pFunction) pb] 
 
 toFunctionDefinition :: Network.URI.URI -> Network.URI.URI -> Function -> DefFun
-toFunctionDefinition  namespace address (Function functionName params returnType _) =  DefFun (lowerFirstChar fname) [("dt", inputType)] 
+toFunctionDefinition  namespace address (Function functionName params functionType _) =  DefFun (lowerFirstChar fname) [("dt", inputType)] 
                                                                      (Call "invokeWS" [StringValue $ show address, 
-                                                                                       StringValue fname, 
-                                                                                       StringValue "", 
+                                                                                       StringValue fname,
                                                                                        StringValue $ show namespace, 
-                                                                                       ListValue $ map (\(c,t) -> TupleValue(StringValue c, convertToString t $ Call c [Free "dt"])) $ constructors dt, 
+                                                                                       ListValue $ map (\(c,t) -> TupleValue(StringValue c, convertToString t $ Call c [Free "dt"])) $ fields dt, 
                                                                                        StringValue return, 
                                                                                        ListValue responseParameterNames]) (Rec inputType $ IOMonad $ TList $ T $ Single $ TString)
                                                            where dt = params2DataType $ messageType params
                                                                  fname = unpack functionName
                                                                  inputType = Single . UserDefined . typeName $ dt
-                                                                 return = unpack . wrapperName . messageType $ returnType
-                                                                 responseParameterNames = map (StringValue . unpack . nameLocalName . parameterName) (parameters . messageType $ returnType)
+                                                                 return = unpack . wrapperName . messageType $ functionType
+                                                                 responseParameterNames = map (StringValue . unpack . nameLocalName . parameterName) (parameters . messageType $ functionType)
 
+
+auxiliarFunctionDefinition (Function functionName params functionType _) = DefFun ("buildOutput_" ++ fname) [("xs", TList $ T $ Single TString)]
+                                                                        (Call return args) (Rec (TList $ T $ Single TString) (Single $ UserDefined return))
+                                                           where fname = unpack functionName
+                                                                 retDataType = params2DataType $ messageType functionType
+                                                                 return = unpack . wrapperName . messageType $ functionType
+                                                                 args = [convertFromString t $ Call "takeString" [Free "xs", IntValue i] | (i,(c,t))  <- enumerate $ fields retDataType]
+                                                                 enumerate = zip [0..]
+                                                                 --responseParameterNames = map (StringValue . unpack . nameLocalName . parameterName) (parameters . messageType $ returnType)
 
  -- FIXME el param dt no puede ser igual a ninguna funcion??
 

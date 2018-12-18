@@ -87,9 +87,9 @@ parametersToXml ((name,value):ps) =
 	"<" ++ name ++ ">" ++  value ++ "</" ++ name ++ ">" ++
 	parametersToXml ps
 
-invokeWS :: String -> String -> String -> String -> [Parameter] -> String -> [String] -> IO [String]
-invokeWS uriStr methodName soapAction namespace parameters response responseTags = do
-	xmlResp <- browse $ fn methodName soapAction namespace parameters
+invokeWS :: String -> String -> String -> [Parameter] -> String -> [String] -> IO [String]
+invokeWS uriStr methodName namespace parameters response responseTags = do
+	xmlResp <- browse $ fn methodName namespace parameters
 	--putStrLn xmlResp
 	--putStrLn $ "in: " ++ contentTst
 	--putStrLn $ "out: " ++ xmlResp
@@ -98,16 +98,13 @@ invokeWS uriStr methodName soapAction namespace parameters response responseTags
 	      contentTst = soapXmlHeader
 	                   ++ (functionToXml methodName namespace parameters)
 	                   ++ soapXmlFooter
-	      req = buildSOAPRequest uri soapAction contentTst
-	      fn methodName soapAction namespace parameters = do
+	      req = buildSOAPRequest uri "" contentTst
+	      fn methodName namespace parameters = do
 			setCookieFilter (\_ _ -> return True)
 			setErrHandler (\_ -> return ())
 			setOutHandler (\_ -> return ())
 			rsp <- request req
 			return (rspBody $ snd rsp)
-
---f [] a = a
---f (x:xs) a = f xs (a (read x))
 
 -- get the values of xml nodes specified by their name
 -- ex.: getNodeValues "<a>1</a><b>2</b><a>3</a>" a = [1,3]
@@ -199,6 +196,30 @@ showBool = show
 
 showVoid :: () -> String
 showVoid = show
+
+readInt :: String -> Int
+readInt = read
+
+readDouble :: String -> Double
+readDouble = read
+
+readLong :: String -> Integer
+readLong = read
+
+readChar :: String -> Char
+readChar = read
+
+readFloat :: String -> Float
+readFloat = read
+
+readBool :: String -> Bool
+readBool = read
+
+readVoid :: String -> ()
+readVoid = read
+
+takeString :: [String] -> Int -> String
+takeString = (!!)
 
 lowerFirstChar :: String -> String
 lowerFirstChar (a:as) = (toLower a):as

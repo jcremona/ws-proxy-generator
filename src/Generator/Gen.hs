@@ -12,47 +12,49 @@ import           Control.Monad.Catch          (MonadThrow)
 import Control.Exception
 import Common.Exception
 data DataType = DataType 
-              { typeName :: String,
-                constructors :: [(String, Type)]
+              { typeName :: String
+              , fields   :: [(String, Type)]
               } deriving Show
 
 data DefFun = DefFun
             { funname       :: String
             , funparameters :: [(String, Type)] -- un param puede ser una funcion, deberia poder usarse esa funcion localmente
-            , body       :: Expr
-            , retType :: Type
+            , body          :: Expr
+            , functionType  :: Type
             } deriving Show
 
 data Module = Module
-            { moduleName :: String,
-              functions :: [DefFun]
-            , dataTypes :: [DataType]
+            { moduleName :: String
+            , functions  :: [DefFun]
+            , dataTypes  :: [DataType]
             } deriving Show
 
-data Type = Single HType | Rec Type Type | TList LType | TTuple (Type, Type) | IOMonad Type deriving (Show, Eq)
-data LType = Empty | T Type deriving (Show, Eq)
-data HType = UserDefined String | TInt | TString | TDouble | TLong | TChar | TFloat | TVoid | TBool deriving (Show, Eq) -- LISTAS??
+data Type = Single HType | Rec Type Type | TList ListType | TTuple (Type, Type) | IOMonad Type deriving (Show, Eq)
+data ListType = EmptyListType | T Type deriving (Show, Eq)
+data HType = UserDefined String | TInt | TString | TDouble | TLong | TChar | TFloat | TVoid | TBool deriving (Show, Eq)
 
-data Expr = Call String [Expr] | Free String | StringValue String | ListValue [Expr] | TupleValue (Expr,Expr) deriving Show
+data Expr = Call String [Expr] | Free String | StringValue String | ListValue [Expr] | TupleValue (Expr,Expr) | IntValue Int deriving Show
 
 type TypedParams = [(String, Type)]
+
 
 write m = writeFile ("./" ++ moduleName m ++ ".hs") $ prettyPrinterModule m
 
 prettyPrinterModule :: Module -> String
-prettyPrinterModule (Module name funcs dts) = "module " ++ name ++ " where\n\n" ++ "import Callws\n\n" ++ (dts >>= (++ "\n\n") . prettyPrinterDataType) ++ (funcs >>= (++ "\n\n") . prettyPrinterFun)
+prettyPrinterModule (Module name funcs dts) = "module " ++ name ++ " where\n\n" ++ "import Callws\nimport Control.Monad\n\n" ++ (dts >>= (++ "\n\n") . prettyPrinterDataType) ++ (funcs >>= (++ "\n\n") . prettyPrinterFun)
 
 prettyPrinterFun :: DefFun -> String
-prettyPrinterFun fun = funname fun ++ " :: " ++ prettyPrinterType (retType fun) ++ "\n" ++ funname fun ++ prettyPrinterParam (funparameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
+prettyPrinterFun fun = funname fun ++ " :: " ++ prettyPrinterType (functionType fun) ++ "\n" ++ funname fun ++ prettyPrinterParam (funparameters fun) ++ " = " ++ prettyPrinterExpr (body fun)  
 
 prettyPrinterDataType :: DataType -> String
-prettyPrinterDataType (DataType name constructors) = "data " ++ name ++ " = " ++ name ++ "{\n" ++ (intercalate "," $ map prettyPrinterConstructor constructors) ++ "} deriving (Show)\n"
-                                                where prettyPrinterConstructor (n, t) = n ++ "::" ++ prettyPrinterType t ++ "\n" 
+prettyPrinterDataType (DataType name fields) = "data " ++ name ++ " = " ++ name ++ "{\n" ++ (intercalate "," $ map prettyPrinterField fields) ++ "} deriving (Show)\n"
+                                                where prettyPrinterField (n, t) = n ++ "::" ++ prettyPrinterType t ++ "\n" 
 
 prettyPrinterExpr :: Expr -> String
 prettyPrinterExpr (Call name xs) =  (foldl (\res expr -> "(" ++ res ++ " " ++ (prettyPrinterExpr expr) ++ ")") name xs)  
 prettyPrinterExpr (Free vble) = vble  
 prettyPrinterExpr (StringValue str) = "\"" ++ str ++ "\""
+prettyPrinterExpr (IntValue int) = show int
 prettyPrinterExpr (ListValue ls) = "[" ++ (intercalate "," $ map prettyPrinterExpr ls) ++ "]"--"[" ++ foldl (\res expr -> res ++ ", " ++ (prettyPrinterExpr expr)) "" ls ++ "]"
 prettyPrinterExpr (TupleValue (e1,e2)) = "(" ++ prettyPrinterExpr e1 ++ "," ++ prettyPrinterExpr e2 ++ ")"
 
@@ -62,7 +64,7 @@ prettyPrinterParam xs = foldl (\res (str, ty) -> res ++ " " ++ str) "" xs
 prettyPrinterType :: Type -> String
 prettyPrinterType (Single htype) = prettyPrinterHType htype
 prettyPrinterType (Rec ttype ttype') = "(" ++ prettyPrinterType ttype ++ " -> " ++ prettyPrinterType ttype' ++ ")"
-prettyPrinterType (TList Empty) = "[" ++ "a" ++ "]" -- FIXME arreglar esto, si una func toma dos listas como parametros, las listas pueden ser del mismo tipo a o no
+prettyPrinterType (TList EmptyListType) = "[" ++ "a" ++ "]" -- FIXME arreglar esto, si una func toma dos listas como parametros, las listas pueden ser del mismo tipo a o no
 prettyPrinterType (TList (T ttype)) = "[" ++ prettyPrinterType ttype ++ "]"
 prettyPrinterType (TTuple (ttype, ttype')) = "(" ++ prettyPrinterType ttype ++ ", " ++ prettyPrinterType ttype' ++ ")"
 prettyPrinterType (IOMonad ttype) = "IO " ++ "(" ++ prettyPrinterType ttype ++ ")"
@@ -79,12 +81,12 @@ prettyPrinterHType TVoid = "()"
 prettyPrinterHType TBool = "Bool"
 
 --typeChecking :: DefFun -> StReader [(String, Type)] TypedParams Type
-typeChecking (DefFun name params body returnType) = do bodyType <- local (const params) $ typeCheckingExpr body
-                                                       funcs <- get
-                                                       returnType' <- return $ foldr (\ (_,t) ty -> Rec t ty) bodyType params
-                                                       if equalType returnType returnType' then 
-                                                             (put $ (name, returnType'):funcs) >> return returnType'
-                                                       else throwCustomExceptionM $ "Couldn't match type of the function " ++ name ++ " with the type of the body" 
+typeChecking (DefFun name params body functionType) = do bodyType <- local (const params) $ typeCheckingExpr body
+                                                         funcs <- get
+                                                         functionType' <- return $ foldr (\ (_,t) ty -> Rec t ty) bodyType params
+                                                         if equalType functionType functionType' then 
+                                                             (put $ (name, functionType'):funcs) >> return functionType'
+                                                         else throwCustomExceptionM $ "Couldn't match type of the function " ++ name ++ " with the type of the body"
 
 --typeCheckingExpr :: Expr -> StReader [(String, Type)] TypedParams Type
 typeCheckingExpr (Call name subexprs) = do params <- ask
@@ -94,9 +96,10 @@ typeCheckingExpr (Call name subexprs) = do params <- ask
                                                 fn (Just t) = check subexprs t 
 typeCheckingExpr (Free vble) =  lookupVble vble
 typeCheckingExpr (StringValue _) = return $ Single TString
+typeCheckingExpr (IntValue _) = return $ Single TInt
 --typeCheckingExpr (ListValue []) = return $ TList Empty
 typeCheckingExpr (ListValue exprs) = foldM (\ res  expr -> do t1 <- typeCheckingExpr expr
-                                                              if equalType (TList $ T t1) res then return $ TList $ T t1 else throwCustomExceptionM "Malformed list: elements with different types") (TList Empty) exprs  
+                                                              if equalType (TList $ T t1) res then return $ TList $ T t1 else throwCustomExceptionM "Malformed list: elements with different types") (TList EmptyListType) exprs  
 typeCheckingExpr (TupleValue (e1, e2)) = do t1 <- typeCheckingExpr e1
                                             t2 <- typeCheckingExpr e2
                                             return $ TTuple (t1, t2)
@@ -108,9 +111,10 @@ check (exp:exps) (Rec ttype ttype') = do ty <- typeCheckingExpr exp
                                          if equalType ty ttype then check exps ttype' else throwCustomExceptionM "Function type doesn't match with parameters"    
 check _ _ = throwCustomExceptionM "Function type doesn't match with parameters"
 
-equalType (TList Empty) (TList (T _)) = False
-equalType (TList _) (TList Empty) = True
+equalType (TList EmptyListType) (TList (T _)) = True
+equalType (TList _) (TList EmptyListType) = True
 equalType (TList (T t1)) (TList (T t2)) = equalType t1 t2
+equalType (Rec t1 t2) (Rec t1' t2') = equalType t1 t1' && equalType t2 t2'
 equalType t1 t2 = t1 == t2
 
 reservedWords = ["case","class","data","default","deriving","do","else","forall"
@@ -160,7 +164,7 @@ analyzeFuncSyntax funcs = do mapM syntaxAnalyzer funcs
                              guardT (allDifferent $ map funname funcs) "Functions must have different names" ()
 
 dataTypeSyntaxAnalyzer :: (MonadThrow m) => DataType -> InternalStReader m s e DataType
-dataTypeSyntaxAnalyzer dt = do mapM (lower . fst) $ constructors dt
+dataTypeSyntaxAnalyzer dt = do mapM (lower . fst) $ fields dt
                                upper $ typeName dt
                                return dt
             
@@ -169,15 +173,28 @@ analyzeDataTypesSyntax dts = do mapM dataTypeSyntaxAnalyzer dts
                                 guardT (allDifferent $ map typeName dts) "Type names must have different names" ()
 
 
-asx funcs dts = do externFuncs <- get
-                   dtFuncs <- processDataTypes dts
-                   put $ externFuncs ++ dtFuncs
-                   processFunctions funcs (externFuncs ++ dtFuncs)
-                   get 
+analyze funcs dts = do externFuncs <- get
+                       dtFuncs <- processDataTypes dts
+                       put $ externFuncs ++ dtFuncs
+                       processFunctions funcs (externFuncs ++ dtFuncs)
+                       get 
                        
 
-processModule moduleName funcs dts = do fs <- asx funcs dts
-                                        return $ Module (upperFirstChar moduleName) funcs dts
+processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
+                                        graph <- buildGraph funcs (map fst externFuncs)
+                                        vs <- graphTopSort graph
+                                        mapM (\v -> typeChecking (funcs !! v)) vs
+
+processDataTypes dts = do analyzeDataTypesSyntax dts
+                          return $ (map constructor2Fun dts) ++ (dts >>= dtype2Fun) 
+
+dtype2Fun dt = map (\(ctr, ty) -> (ctr, Rec (Single $ UserDefined $ typeName dt) ty)) $ fields dt 
+
+constructor2Fun dt = (typeName dt, foldr (\(c,t) ty -> Rec t ty) (Single $ UserDefined $ typeName dt) (fields dt))
+
+
+buildModule moduleName funcs dts = do analyze funcs dts
+                                      return $ Module (upperFirstChar moduleName) funcs dts
 
 
 convertToString :: Type -> Expr -> Expr
@@ -199,11 +216,36 @@ showFloatType = Rec (Single TFloat) (Single TString)
 showBoolType = Rec (Single TBool) (Single TString)
 showVoidType = Rec (Single TVoid) (Single TString)
 
-callWSType = Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (TList Empty) $ Rec (Single TString) $ Rec (TList $ T $ Single TString) (IOMonad $ TList $ T $ Single TString)
+convertFromString :: Type -> Expr -> Expr
+convertFromString (Single TString) expr = expr
+convertFromString (Single TInt) expr = Call "readInt" [expr]  
+convertFromString (Single TDouble) expr = Call "readDouble" [expr]
+convertFromString (Single TLong) expr = Call "readLong" [expr]
+convertFromString (Single TChar) expr = Call "readChar" [expr]
+convertFromString (Single TFloat) expr = Call "readFloat" [expr]
+convertFromString (Single TBool) expr = Call "readBool" [expr]
+convertFromString (Single TVoid) expr = Call "readVoid" [expr]
+convertFromString _ expr = expr
 
-builtInFunctions = [("invokeWS",callWSType),("showInt",showIntType),("showDouble",showDoubleType),("showLong",showLongType),("showChar",showCharType),("showFloat",showFloatType),("showBool",showBoolType),("showVoid",showVoidType)]
+readIntType = Rec (Single TString) (Single TInt) 
+readDoubleType = Rec (Single TString) (Single TDouble)
+readLongType = Rec (Single TString) (Single TLong) 
+readCharType = Rec (Single TString) (Single TChar)
+readFloatType = Rec (Single TString) (Single TFloat)
+readBoolType = Rec (Single TString) (Single TBool)
+readVoidType = Rec (Single TString) (Single TVoid)
+
+takeStringType = Rec (TList $ T $ Single TString) $ Rec (Single TInt) (Single TString) 
+
+callWSType = Rec (Single TString) $ Rec (Single TString) $ Rec (Single TString) $ Rec (TList $ T $ TTuple (Single TString, Single TString)) $ Rec (Single TString) $ Rec (TList $ T $ Single TString) (IOMonad $ TList $ T $ Single TString)
+
+builtInFunctions = [("invokeWS",callWSType),("showInt",showIntType),("showDouble",showDoubleType),("showLong",showLongType),("showChar",showCharType),("showFloat",showFloatType),("showBool",showBoolType),("showVoid",showVoidType),("readInt",readIntType),("readDouble",readDoubleType),("readLong",readLongType),("readChar",readCharType),("readFloat",readFloatType),("readBool",readBoolType),("readVoid",readVoidType),("takeString",takeStringType)]
  
-runGenerationModule (Module moduleName funcs dts) = runStReader (processModule moduleName funcs dts) builtInFunctions [] >>= return . fst
+runGenerationModule (Module moduleName funcs dts) = runStReader (buildModule moduleName funcs dts) builtInFunctions [] >>= return . fst
+
+
+-------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------
 
 buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (initEdges $ length names) funcs
                                   return $ makeGraph edges
@@ -212,17 +254,6 @@ buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (init
 
 graphTopSort graph = do guardT (not $ cyclicGraph $ graph) "Graph error" ()
                         return $ topSort graph
-
---processFunctions :: (MonadThrowable m) => [DefFun] -> [(String,Type)] -> m [Type]
-processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
-                                        graph <- buildGraph funcs (map fst externFuncs)
-                                        vs <- graphTopSort graph
-                                        mapM (\v -> typeChecking (funcs !! v)) vs
-
-processDataTypes dts = do analyzeDataTypesSyntax dts
-                          return $ dts >>= dtype2Fun 
-
-dtype2Fun dt = map (\(ctr, ty) -> (ctr, Rec (Single $ UserDefined $ typeName dt) ty)) $ constructors dt 
                                        
 initEdges :: Int -> [(Int, [Int])]
 initEdges 0 = []
@@ -238,7 +269,7 @@ kkp xs externFuncs ys fun = do node <- lookupT (funname fun) xs
                       paramFuncs = map fst $ funparameters fun                 
 
 --lookupT :: a -> [(a,b)] -> m b
-lookupT _ [] = throwCustomExceptionM "Unable to find this key"
+lookupT x [] = throwCustomExceptionM $ "Unable to find this key: " ++ x
 lookupT x ((y,z):ys) | x == y = return z
                      | otherwise = lookupT x ys
 
@@ -263,9 +294,12 @@ throwCustomExceptionM = throwExc . throwCustomException
 --      where f Nothing = error "Nothing"
 --            f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
 
---run2 = f $ (runStReader $ asx [func5] []) [("length",typ2)] []
---      where f Nothing = error "Nothing"
---            f (Just (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
+
+run2 :: [String]--([(String, Type)], [(String, Type)])
+run2 = f $ (runStReader $ analyze [func5] []) [("length",typ2)] []
+      where f (Left e) = [show e]
+            f (Right (s,_)) = map (\(n,t) -> n ++ " :: " ++ prettyPrinterType t) s
+
 
 
 --run func dts = f $ (runStReader $ asx func dts) [("invokeWS",callWSType)] []
@@ -281,8 +315,19 @@ throwCustomExceptionM = throwExc . throwCustomException
 --func4 = DefFun "apply" [("sum", Rec (Single TString) (Single TInt)), ("b", Single $ TString)] (Call "sum" [Free "b"])
 --typ = Rec (Single TInt) (Rec (Single TInt) (Single TString))
 
---func5 = DefFun "len" [("a", TList $ T $ Single TInt)] (Call "length" [Free "a"])
---typ2 = Rec (TList Empty) (Single TInt)
+-- TODO para este ejemplo eq (Empty) (T ty) debe dar false, pero para el de abajo debe dar True! hay que distinguir entre la lista vacia y un tipo de Lista Parametrico 
+func5 = DefFun "len" [("a", TList EmptyListType)] (Call "length" [Free "a"]) (Rec (TList EmptyListType) (Single TInt))
+typ2 = Rec (TList $ T $ Single TInt) (Single TInt)
+
+--func5 = DefFun "len" [] (Call "length" []) (Rec (TList EmptyListType) (Single TInt))
+--typ2 = Rec (TList $ T $ Single TInt) (Single TInt)
+
 --typ3 = Rec (Single TString) (Rec (Single TString) (Single TString))
+
+--len :: [a] -> Int
+--len a = lt a
+
+--lt :: [Int] -> Int
+--lt = const 2
 
 
