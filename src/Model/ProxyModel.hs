@@ -4,13 +4,6 @@ import Data.Text      (Text)
 import Data.XML.Types
 import Network.URI
 
-data LanguageAbstraction = LanguageAbstraction 
-                         { interfaces       :: [Interface]
-                         , enumerations     :: [Enumeration]
-                         , lists            :: [List] -- Arrays (maxOccurs=unbounded)
-                         , dataTypes        :: [DataTypes]
-                         , protocolMetadata :: Metadata
-                         }
 
 data WSAbstraction = WSAbstraction 
                    { defServices :: [Service]
@@ -52,10 +45,6 @@ data Parameter = Parameter
                , ttype         :: WSType 
                } deriving Show
 
-data Enumeration = Enumeration 
-                 { name    :: String
-                 , members :: [EnumMembers]
-                 }
 
 data Port = Port
           { bName :: Text
@@ -66,14 +55,6 @@ data Service = Service
              { sName :: Text
              , ports :: [(Port, URI)]
              } deriving Show
-
-data EnumMembers = EnumMembers -- FIXME no me queda claro que tiene que contener EnumMembers
-
-data Metadata = Metadata
-
-data List = List -- FIXME ver como representar la jerarquia HWSType
-
-data DataTypes = DataTypes
 
 data FunctionIdentifier = FunctionIdentifier
                         { funName :: Text

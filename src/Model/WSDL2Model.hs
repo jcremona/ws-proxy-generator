@@ -9,7 +9,8 @@ import Data.XML.Types
 import Text.XML.WSDL.Types
 import Control.Monad.Catch (MonadThrow, throwM)
 import Common.Exception
-type Error = String
+
+--type Error = String
 
 
 --data Style = RPCLiteral | RPCEncoded | DocumentLiteral | DocumentLiteralWrapped

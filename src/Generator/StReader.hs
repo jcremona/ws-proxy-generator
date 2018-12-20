@@ -47,7 +47,8 @@ get = InternalStReader (\ st _ -> return (st, st))
 local :: MonadThrow m => (env -> env) -> InternalStReader m s env a -> InternalStReader m s env a
 local f (InternalStReader g) = InternalStReader (\s e -> g s $ f e)  
 
-
+throwCustomExceptionM :: (MonadThrow m) => String -> InternalStReader m s e a
+throwCustomExceptionM = throwExc . throwCustomException
 
 --(\ st -> let (a, st') = s st 
 --          in runState (f a) st'
