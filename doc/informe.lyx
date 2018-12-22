@@ -1,0 +1,220 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Descripción del proyecto
+\end_layout
+
+\begin_layout Standard
+A partir del auge de Internet, surgió la necesidad de la comunicación de
+ datos entre aplicaciones corriendo en distintas plataformas.
+ En este contexto, un 
+\series bold
+servicio web
+\series default
+ permite a una aplicación consumir datos desde otra aplicación, independientemen
+te del lenguaje en el que estén desarrolladas o de la plataforma en la que
+ corran.
+ Nótese que difiere de una aplicación web, la cual está pensada para ser
+ consumida por un usuario.
+\end_layout
+
+\begin_layout Standard
+Una de las implementaciones más comunes de un servicio web es mediante la
+ aplicación del protocolo SOAP.
+ Si bien está cayendo en desuso, muchas aplicaciones siguen utilizando esta
+ metodología hoy en día.
+ 
+\series bold
+SOAP
+\series default
+ es un protocolo estándar de comunicación que define el intercambio de mensajes
+ entre dos objetos en distintos procesos, basado en XML.
+ Generalmente, SOAP se utiliza sobre el protocolo de aplicación HTTP, aprovechán
+dose del masivo uso del mismo, y de que es soportado por todos los navegadores
+ y servidores.
+ Un mensaje SOAP está compuesto por cabeceras (
+\emph on
+headers
+\emph default
+) y un cuerpo de mensaje (
+\emph on
+body
+\emph default
+), de forma similar a HTTP.
+\end_layout
+
+\begin_layout Standard
+Este tipo de servicios suele exportar un documento escrito en un lenguaje
+ de descripción conocido como WSDL.
+ Un documento 
+\series bold
+WSDL 
+\series default
+proporciona al cliente la información necesaria para interactuar con el
+ servicio web.
+ WSDL define una gramática XML que describe los servicios de red como coleccione
+s de puntos finales (
+\emph on
+endpoints
+\emph default
+) capaces de intercambiar mensajes (NdR: en la carpeta test se adjuntan
+ varios ejemplos de documentos WSDL).
+ Además sirve como interfaz del servicio, permitiendo definir operaciones
+ mediante abstracciones de los elementos típicos de los lenguajes de programació
+n de propósito general, tales como métodos y tipos.
+\end_layout
+
+\begin_layout Standard
+El presente proyecto tiene como objetivo automatizar varios de los pasos
+ necesarios para consumir un servicio web mediante la creación de un cliente
+ Haskell.
+ El programa recibe como entrada un documento WSDL, y su salida son módulos
+ Haskell con funciones que permiten consumir el servicio web en cuestión.
+ Estas funciones sólo requieren que se le pasen los valores como parámetros
+ y, al ser ejecutadas, retornan la salida del servicio web.
+ En principio, estas funciones solamente toman records como argumento, cuyos
+ campos son tipos primitivos.
+ Los módulos generados importan un módulo ya predefinido (codeado con anteriorid
+ad), el cual expone el método que se encarga de la comunicación propiamente
+ dicha: creación del mensaje XML, empaquetamiento en un mensaje HTTP, y
+ envío del mensaje mediante un POST request de HTTP.
+ Además este módulo expone otras funciones útiles a usar en runtime.
+\end_layout
+
+\begin_layout Subsection
+Limitaciones
+\end_layout
+
+\begin_layout Standard
+El proyecto presenta ciertas limitaciones, en el sentido de que no acepta
+ cualquier documento WSDL como entrada.
+ Debido a la gran flexibilidad que tiene el lenguaje WSDL, se decidió que
+ el programa sólo acepte un subconjunto de todos los documentos WSDL posibles.
+ 
+\end_layout
+
+\begin_layout Standard
+Existen cuatro tipos diferentes de estilos (
+\emph on
+styles
+\emph default
+) para definir un documento WSDL:
+\end_layout
+
+\begin_layout Enumerate
+RPC/Encoded
+\end_layout
+
+\begin_layout Enumerate
+RPC/Literal
+\end_layout
+
+\begin_layout Enumerate
+Document/Encoded
+\end_layout
+
+\begin_layout Enumerate
+Document/Literal
+\end_layout
+
+\begin_layout Standard
+La diferencia principal radica en la forma en la que se construye el cuerpo
+ del mensaje SOAP.
+ El estilo Document permite que el cuerpo sea cualquier instancia XML, mientras
+ que el estilo RPC requiere que el mensaje contenga un formato particular,
+ en el que aparece el nombre del método en cuestión y un conjunto de parámetros.
+ Por otro lado, el estilo Literal implica que el cuerpo del mensaje se define
+ conforme a un XML Schema (lenguaje utilizado para describir bloques XML,
+ indicando tipos de datos y restricciones que debe cumplir una instancia
+ de XML), mientras que el estilo Encoded no tiene esta restricción, si bien
+ utiliza tipos de datos del lenguaje XML Schema.
+ Para este proyecto se decidió que el programa sólo acepte documentos WSDL
+ definidos mediante el estilo 
+\series bold
+RPC/Literal
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Otra de las limitaciones es que los métodos permitidos en los documentos
+ WSDL deben admitir al menos un parámetro de entrada y de salida.
+\end_layout
+
+\end_body
+\end_document
