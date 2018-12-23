@@ -5,9 +5,12 @@
 \save_transient_properties true
 \origin unavailable
 \textclass article
+\begin_preamble
+\usepackage{xcolor}
+\end_preamble
 \use_default_options true
 \maintain_unincluded_children false
-\language english
+\language spanish
 \language_package default
 \inputencoding auto
 \fontencoding global
@@ -29,6 +32,7 @@
 \bibtex_command default
 \index_command default
 \paperfontsize default
+\spacing single
 \use_hyperref false
 \papersize default
 \use_geometry false
@@ -44,6 +48,7 @@
 \use_package undertilde 1
 \cite_engine basic
 \cite_engine_type default
+\biblio_style plain
 \use_bibtopic false
 \use_indices false
 \paperorientation portrait
@@ -61,7 +66,7 @@
 \paragraph_indentation default
 \is_math_indent 0
 \math_numbering_side default
-\quotes_style english
+\quotes_style french
 \dynamic_quotes 0
 \papercolumns 1
 \papersides 1
@@ -74,6 +79,14 @@
 \end_header
 
 \begin_body
+
+\begin_layout Title
+Trabajo Final
+\end_layout
+
+\begin_layout Author
+Javier Cremona
+\end_layout
 
 \begin_layout Section
 Descripción del proyecto
@@ -214,6 +227,261 @@ RPC/Literal
 \begin_layout Standard
 Otra de las limitaciones es que los métodos permitidos en los documentos
  WSDL deben admitir al menos un parámetro de entrada y de salida.
+\end_layout
+
+\begin_layout Section
+Instalación y uso
+\end_layout
+
+\begin_layout Subsection
+Dependencias
+\end_layout
+
+\begin_layout Standard
+Los siguientes paquetes son necesarios para la ejecución de este proyecto.
+ Se pueden instalar mediante cabal.
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset href
+LatexCommand href
+name "exceptions"
+target "http://hackage.haskell.org/package/exceptions"
+literal "false"
+
+\end_inset
+
+ (0.10.0)
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset href
+LatexCommand href
+name "conduit"
+target "http://hackage.haskell.org/package/conduit"
+literal "false"
+
+\end_inset
+
+ (>= 1.2.13.1)
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset href
+LatexCommand href
+name "xml-types"
+target "http://hackage.haskell.org/package/xml-types"
+literal "false"
+
+\end_inset
+
+ (0.3.6)
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset href
+LatexCommand href
+name "network-uri"
+target "http://hackage.haskell.org/package/network-uri"
+literal "false"
+
+\end_inset
+
+ (2.6.1.0)
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset href
+LatexCommand href
+name "xml-conduit"
+target "http://hackage.haskell.org/package/xml-conduit"
+literal "false"
+
+\end_inset
+
+ (1.7.1.2)
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset href
+LatexCommand href
+name "prettyprinter"
+target "http://hackage.haskell.org/package/prettyprinter"
+literal "false"
+
+\end_inset
+
+ (1.2.1)
+\end_layout
+
+\begin_layout Subsection
+Instalación
+\end_layout
+
+\begin_layout Enumerate
+Clonar el proyecto:
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},breaklines=true,backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+git clone https://github.com/jcremona/ws-proxy-generator.git
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+Ir a la carpeta src:
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+cd ws-proxy-generator/src
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Compilar:
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+ghc Main.hs
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Correr el programa con la URL de un documento WSDL como parámetro:
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+./Main http://localhost:9999/ws/hello?wsdl
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Si todo funcionó correctamente, aparecerá el nombre del módulo generado,
+ en nuestro caso HelloWorld.hs.
+ Para utilizar este módulo es necesario hacerlo en el mismo directorio en
+ el que se encuentre el módulo Callws.hs, ya que el código generado importa
+ este módulo.
+\end_layout
+
+\begin_layout Enumerate
+Utilizamos el módulo generado:
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+ghci HelloWorld.hs
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Si miramos el código generado, veremos que se generaron tres métodos por
+ cada operation definida en el documento WSDL, además de los 
+\emph on
+datatypes
+\emph default
+ (records) correspondientes a los parámetros de entrada y salida.
+ Por ejemplo, si en el documento WSDL definimos una operation llamada 
+\begin_inset Quotes fld
+\end_inset
+
+sayHello
+\begin_inset Quotes frd
+\end_inset
+
+, en el módulo generado veremos tres métodos: 
+\begin_inset Quotes fld
+\end_inset
+
+sayHello
+\begin_inset Quotes frd
+\end_inset
+
+, 
+\begin_inset Quotes fld
+\end_inset
+
+sayHello'
+\begin_inset Quotes frd
+\end_inset
+
+, y 
+\begin_inset Quotes fld
+\end_inset
+
+buildOutput_sayHello
+\begin_inset Quotes frd
+\end_inset
+
+.
+ El que nos interesa es el que se llama igual a la operation, en este caso
+ 
+\begin_inset Quotes fld
+\end_inset
+
+sayHello
+\begin_inset Quotes frd
+\end_inset
+
+.
+ Este método es el que consumirá el servicio web al ejecutarlo.
 \end_layout
 
 \end_body
