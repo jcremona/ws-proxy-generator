@@ -251,7 +251,7 @@ literal "false"
 
 \end_inset
 
- (0.10.0)
+ (>= 0.10.0)
 \end_layout
 
 \begin_layout Itemize
@@ -263,7 +263,7 @@ literal "false"
 
 \end_inset
 
- (>= 1.2.13.1)
+ (>= 1.3.0.3)
 \end_layout
 
 \begin_layout Itemize
@@ -275,7 +275,7 @@ literal "false"
 
 \end_inset
 
- (0.3.6)
+ (>= 0.3.6)
 \end_layout
 
 \begin_layout Itemize
@@ -287,7 +287,7 @@ literal "false"
 
 \end_inset
 
- (2.6.1.0)
+ (>= 2.6.1.0)
 \end_layout
 
 \begin_layout Itemize
@@ -299,7 +299,7 @@ literal "false"
 
 \end_inset
 
- (1.7.1.2)
+ (>= 1.8.0)
 \end_layout
 
 \begin_layout Itemize
@@ -311,7 +311,7 @@ literal "false"
 
 \end_inset
 
- (1.2.1)
+ (>= 1.2.1)
 \end_layout
 
 \begin_layout Subsection
@@ -482,6 +482,112 @@ sayHello
 
 .
  Este método es el que consumirá el servicio web al ejecutarlo.
+\end_layout
+
+\begin_layout Section
+Organización de los archivos
+\end_layout
+
+\begin_layout Section
+Decisiones de diseño
+\end_layout
+
+\begin_layout Standard
+Text -> WSDL
+\end_layout
+
+\begin_layout Standard
+WSDL -> Model (WSAbstraction)
+\end_layout
+
+\begin_layout Standard
+Model -> Module
+\end_layout
+
+\begin_layout Standard
+Module –> Text
+\end_layout
+
+\begin_layout Subsection
+La mónada StReader
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=Haskell,numbers=left,numberstyle={\scriptsize},basicstyle={\footnotesize\sffamily},breaklines=true,showstringspaces=false,tabsize=4,extendedchars=true,frame=tb"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+data StReader m s e a = StReader {runStReader :: s -> e -> m (a,s)}
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+instance MonadThrow m => Monad (StReader m s e) where
+\end_layout
+
+\begin_layout Plain Layout
+
+    return x = StReader (
+\backslash
+s e -> return (x, s))     
+\end_layout
+
+\begin_layout Plain Layout
+
+    StReader t >>= f = StReader (
+\backslash
+st e -> t st e >>= 
+\backslash
+(a, st') -> runStReader (f a) st' e) 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+La mónada StReader permite llevar un entorno de la misma forma que la mónada
+ Reader, junto con un estado, como lo hace la mónada State.
+ Además, permite el manejo de errores.
+ Originalmente almacenaba un valor de tipo Maybe, pero luego se decidió
+ generalizar mediante la mónada MonadThrow.
+\end_layout
+
+\begin_layout Standard
+Esta mónada se utiliza durante la generación de código, tanto para el análisis
+ sintáctico como para el chequeo de tipos.
+\end_layout
+
+\begin_layout Subsection
+DGraph y sort topológico
+\end_layout
+
+\begin_layout Standard
+El módulo DGraph está pensado para ser utilizado durante la etapa de tipado.
+ Las funciones que se pueden definir mediante el módulo Gen pueden llamar
+ a otras funciones definidas por el usuario.
+ Durante el tipado, se lleva una lista (estado de la mónada StReader) con
+ las funciones ya tipadas (junto a su tipo), añadiendo a esta lista una
+ función cada vez que se procesa y determina el tipo de la misma.
+ Por lo tanto, cada vez que se procesa una función, si en su cuerpo hay
+ una llamada a otra función, es deseable que la función llamada ya esté
+ tipada e incluida en la lista.
+ 
+\end_layout
+
+\begin_layout Standard
+Para cumplir con este requerimiento, se decidió que se implemente un grafo
+ dirigido cuyos nodos son las funciones definidas.
+ Si en el cuerpo de una función f, aparece una llamada a una función g,
+ en el grafo hay una arista de g a f.
 \end_layout
 
 \end_body
