@@ -24,14 +24,18 @@ module Generator.TypeChecking
   tupleExpr,
   intExpr,
   typeCheckingExpr,
+
   prettyPrinterExpr,
   prettyPrinterType,
+
   equalType,
 
   convertToString,
   convertFromString,
 
-  pattern Call_
+  pattern Call_,
+  pattern List_,
+  pattern Tuple_,
 ) where
 
 import Generator.StReader
@@ -102,10 +106,16 @@ prettyPrinterExpr (TupleValue (e1,e2)) = tupled [prettyPrinterExpr e1, prettyPri
 pattern Call_ name exprs <- Call name exprs where
      Call_ n xs = Call n xs
 
+pattern List_ exprs <- ListValue exprs where
+     List_ xs = ListValue xs
+
+pattern Tuple_ exprs <- TupleValue exprs where
+     Tuple_ (e1,e2) = TupleValue (e1,e2)
+
 typeCheckingExpr (Call name subexprs) = do params <- ask
                                            funcs <- get
                                            fn $ lookup name params <|> lookup name funcs 
-                                          where fn Nothing = throwCustomExceptionM $ "Undefinded function: " ++ name      
+                                          where fn Nothing = throwCustomExceptionM $ "Undefined function: " ++ name      
                                                 fn (Just t) = check subexprs t 
 typeCheckingExpr (Free vble) =  lookupVble vble
 typeCheckingExpr (StringValue _) = return stringType

@@ -35,7 +35,7 @@ buildSOAPRequest uri action content =
             , rqBody=content
             , rqHeaders=[ Header HdrContentType "text/xml; charset=utf-8"
                         , Header HdrContentLength (show (length content))
-                        , Header HdrUserAgent libUA
+                        , Header HdrUserAgent defaultUserAgent
                         , Header (HdrCustom "HdrSoapAction") action
                         ]
             , rqMethod=POST
@@ -71,7 +71,7 @@ soapXmlHeader = "<?xml version='1.0' encoding='utf-8'?>" ++
 
 soapXmlFooter :: String
 soapXmlFooter = "</soap:Body>" ++
-		        "</soap:Envelope>"
+        "</soap:Envelope>"
 
 nsalias = "nsalias"
 
@@ -132,7 +132,7 @@ parseXmlResponse = parseResponse . encode
 
 displayResponse xml responseTag elementTags  = either ((:[]) . displayException) id (parseXmlResponse xml responseTag elementTags)
 
-parseResponse t rsp bs = runReaderT (parseLBS def t $$ (parseEnvelope rsp bs)) emptyParseState
+parseResponse t rsp bs = runReaderT (runConduit $ parseLBS def t .| (parseEnvelope rsp bs)) emptyParseState
 
 parseEnvelope rsp bts = force "Missing Envelope" $ tag (matching $ (== "Envelope") . nameLocalName)
                     (\ n -> return n)

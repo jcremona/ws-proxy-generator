@@ -1,0 +1,51 @@
+<definitions xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsp="http://www.w3.org/ns/ws-policy" xmlns:wsp1_2="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsam="http://www.w3.org/2007/05/addressing/metadata" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://examples.com/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.xmlsoap.org/wsdl/" targetNamespace="http://examples.com/" name="Hello_BindingImplService">
+<types/>
+<message name="sayHello">
+<part name="arg0" type="xsd:string"/>
+</message>
+<message name="sayHelloResponse">
+<part name="return" type="xsd:string"/>
+</message>
+<message name="mySayHello">
+<part name="firstNam" type="xsd:int"/>
+</message>
+<message name="mySayHelloResponse">
+<part name="SayHelloResponse__" type="xsd:string"/>
+</message>
+<portType name="Hello_BindingImpl">
+<operation name="sayHello">
+<input wsam:Action="http://examples.com/Hello_BindingImpl/sayHelloRequest" message="tns:sayHello"/>
+<output wsam:Action="http://examples.com/Hello_BindingImpl/sayHelloResponse" message="tns:sayHelloResponse"/>
+</operation>
+<operation name="mySayHello">
+<input wsam:Action="robrt" message="tns:mySayHello"/>
+<output wsam:Action="http://examples.com/Hello_BindingImpl/mySayHelloResponse" message="tns:mySayHelloResponse"/>
+</operation>
+</portType>
+<binding name="Hello_BindingImplPortBinding" type="tns:Hello_BindingImpl">
+<soap:binding transport="http://schemas.xmlsoap.org/soap/http" style="rpc"/>
+<operation name="sayHello">
+<soap:operation soapAction=""/>
+<input>
+<soap:body use="literal" namespace="http://examples.com/"/>
+</input>
+<output>
+<soap:body use="literal" namespace="http://examples.com/"/>
+</output>
+</operation>
+<operation name="mySayHello">
+<soap:operation soapAction="robrt"/>
+<input>
+<soap:body use="literal" namespace="http://examples.com/"/>
+</input>
+<output>
+<soap:body use="literal" namespace="http://examples.com/"/>
+</output>
+</operation>
+</binding>
+<service name="Hello_BindingImplService">
+<port name="Hello_BindingImplPort" binding="tns:Hello_BindingImplPortBinding">
+<soap:address location="http://localhost:9999/ws/hello"/>
+</port>
+</service>
+</definitions>

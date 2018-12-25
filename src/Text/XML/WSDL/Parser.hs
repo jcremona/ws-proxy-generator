@@ -17,7 +17,7 @@ import           Control.Applicative          ((<|>))
 import           Control.Monad
 import           Control.Monad.Catch          (MonadThrow, throwM)
 import           Control.Monad.Reader
-import           Control.Monad.Trans.Resource (MonadResource)
+--import           Control.Monad.Trans.Resource (MonadResource)
 import           Data.ByteString.Lazy         (ByteString)
 import           Data.Conduit
 import           Data.Maybe
@@ -43,7 +43,7 @@ emptyParseState = ParseState Nothing -- []
 
 -- | Parse a 'ByteString' into a WSDL.
 parseLBS :: MonadThrow m => ByteString -> m WSDL
-parseLBS t = runReaderT (P.parseLBS def t $$ parseWSDL) emptyParseState
+parseLBS t = runReaderT (runConduit $ P.parseLBS def t .| parseWSDL) emptyParseState
 
 -- | Parse a file into a WSDL.
 --parseFile :: MonadResource m => FilePath -> m WSDL
@@ -60,7 +60,7 @@ ignoreDocs = forever $ do
         Nothing -> return ()
 
 parseWSDL :: MonadThrow m => ConduitM Event o (ReaderT ParseState m) WSDL
-parseWSDL = (ignoreDocs =$) $ force "Missing WSDL" $ tag
+parseWSDL = (ignoreDocs .|) $ force "Missing WSDL" $ tag
     (matching $ (== "definitions") . nameLocalName)
     (\ n -> do
         tns <- (>>= parseURI . T.unpack) <$> attr "targetNamespace"
