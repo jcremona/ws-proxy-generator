@@ -1243,7 +1243,15 @@ DGraph y ordenamiento topológico
 \end_layout
 
 \begin_layout Standard
-El módulo DGraph está pensado para ser utilizado durante la etapa de tipado.
+El módulo DGraph 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-3"
+literal "false"
+
+\end_inset
+
+ está pensado para ser utilizado durante la etapa de tipado.
  Las funciones que se pueden definir mediante el módulo HaskellGen pueden
  llamar a otras funciones definidas por el usuario.
  Durante el tipado, se lleva una lista (estado de la mónada StReader) con

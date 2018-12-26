@@ -485,6 +485,63 @@ sayHello
  Este método es el que consumirá el servicio web al ejecutarlo.
 \end_layout
 
+\begin_layout Subsection
+Servicios web para testear
+\end_layout
+
+\begin_layout Standard
+Para probar el programa se implementaron y deployaron dos servicios web.
+ A continuación se presentan las URLs de sus documentos WSDL.
+\end_layout
+
+\begin_layout Itemize
+Math: http://soapsamples.herokuapp.com/ws/math?wsdl
+\end_layout
+
+\begin_layout Itemize
+Hello: http://soapsamples.herokuapp.com/ws/hello?wsdl
+\end_layout
+
+\begin_layout Standard
+Por lo tanto, se pueden probar ambos servicios mediante:
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+./Main http://soapsamples.herokuapp.com/ws/math?wsdl
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+ó
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+./Main http://soapsamples.herokuapp.com/ws/hello?wsdl
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Organización de los archivos
 \end_layout
