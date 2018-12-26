@@ -139,9 +139,12 @@ syntaxAnalyzer fun = do fname <- validIdentifier . funname $ fun
                      where params = funparameters fun
                            
 
-analyzeFuncSyntax :: (MonadThrow m) =>[DefFun] -> StReader m s e ()
-analyzeFuncSyntax funcs = do mapM syntaxAnalyzer funcs
-                             guardT (allDifferent $ map funname funcs) "Functions must have different names" ()
+--analyzeFuncSyntax :: (MonadThrow m) =>[DefFun] -> StReader m s e ()
+analyzeFuncSyntax funcs = do externFuncs <- get
+                             let externFuncNames = map fst externFuncs
+                             mapM syntaxAnalyzer funcs
+                             mapM notAReservedWord externFuncNames
+                             guardT (allDifferent $ map funname funcs ++ externFuncNames) "Functions must have different names" ()
 
 dataTypeSyntaxAnalyzer :: (MonadThrow m) => DataType -> StReader m s e DataType
 dataTypeSyntaxAnalyzer dt = do mapM (lower . fst) $ fields dt
@@ -197,17 +200,19 @@ runGenerationModule moduleName funcs dts = runStReader (buildModule moduleName f
 analyze funcs dts = do externFuncs <- get
                        dtFuncs <- processDataTypes dts
                        put $ externFuncs ++ dtFuncs
-                       processFunctions funcs (externFuncs ++ dtFuncs)
-                       get -- FIXME borrar?
+                       --processFunctions funcs (externFuncs ++ dtFuncs)
+                       --get -- FIXME borrar?
 
 ------------------------------------------------------------
 -- processFunctions: analiza la sintaxis de las funciones,
 -- construye un grafo dirigido, y realiza chequeo de tipos.
 ------------------------------------------------------------
-processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
-                                        graph <- buildGraph funcs (map fst externFuncs)
-                                        vs <- graphTopSort graph
-                                        mapM (\v -> typeChecking (funcs !! v)) vs
+processFunctions funcs = do externFuncs <- get
+                            analyzeFuncSyntax funcs
+                            graph <- buildGraph funcs (map fst externFuncs) 
+                            vs <- graphTopSort graph
+                            mapM (\v -> typeChecking (funcs !! v)) vs
+                           
 
 --------------------------------------------------------------------
 -- processDataTypes: analiza la sintaxis de los datatypes 
