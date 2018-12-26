@@ -10,10 +10,23 @@ import Text.XML.WSDL.Types
 import Control.Monad.Catch (MonadThrow, throwM)
 import Common.Exception
 
---type Error = String
-
-
 --data Style = RPCLiteral | RPCEncoded | DocumentLiteral | DocumentLiteralWrapped
+
+---------------------------------------------------------------------
+-- Módulo para traducir WSDL a WSAbstraction (modelo intermedio).
+-- Se realizan chequeos de nombre para asegurar que el WSDL
+-- está bien definido.
+---------------------------------------------------------------------
+
+buildModel :: (MonadThrow m) => Reader WSDL (m WSAbstraction)
+buildModel = do servs <- getServices
+                ts <- getMessages
+                ns <- asks targetNamespace
+                return $ do servs' <- servs
+                            ts' <- ts
+                            return $ WSAbstraction servs' ts' ns
+
+
 
 findM  :: (MonadThrow m) => (a -> Bool) -> [a] -> String -> m a
 findM f ps e = case find f ps of
@@ -21,17 +34,17 @@ findM f ps e = case find f ps of
                  Just p -> return p 
 
 voidType :: NamedMsgs
-voidType = NamedMsgs Nothing $ Params (pack "") [Parameter (Name (pack "") Nothing Nothing) (WSPrimitiveType WSVoid)]
+voidType = NamedMsgs Nothing $ Message (pack "") [Parameter (Name (pack "") Nothing Nothing) (WSPrimitiveType WSVoid)]
        
-paramsSearch :: Text -> Params -> Bool
-paramsSearch t p = wrapperName p == t
+messageSearch :: Text -> Message -> Bool
+messageSearch t p = wrapperName p == t
 
-getParams :: (MonadThrow m) => Reader WSDL (m [Params])
-getParams = do ms <- asks messages
-               return $ mapM buildParams ms
+getMessages :: (MonadThrow m) => Reader WSDL (m [Message])
+getMessages = do ms <- asks messages
+                 return $ mapM buildMessages ms
 
-buildParams msg = do parameters <- mapM buildParameter $ wsdlMessageParts msg
-                     return $ (Params (wsdlMessageName msg)) parameters
+buildMessages msg = do parameters <- mapM buildParameter $ wsdlMessageParts msg
+                       return $ (Message (wsdlMessageName msg)) parameters
 
 buildParameter part = do typ <- convertPrimitiveType $ unpack $ nameLocalName qname 
                          return $ Parameter (wsdlMessagePartName part) (WSPrimitiveType typ)
@@ -51,7 +64,7 @@ buildFunction ps (AbstractNotificationOperation name output order) = do out <- f
 
 getInterfaces :: (MonadThrow m) => Reader WSDL (m [Interface])
 getInterfaces = do pts <- asks portTypes
-                   ms <- getParams
+                   ms <- getMessages
                    return $ do ms' <- ms
                                mapM (buildInterface ms') pts
 
@@ -81,10 +94,10 @@ buildService ps ws = do ps' <- mapM (findPort ps) (wsdlServicePorts ws)
                         return $ Service (wsdlServiceName ws) ps' 
 
 
-findInputParam ps input = do p <- findM (paramsSearch $ nameLocalName $ inputMessageType input) ps "Error looking for input parameters"
+findInputParam ps input = do p <- findM (messageSearch $ nameLocalName $ inputMessageType input) ps "Error looking for input parameters"
                              return $ NamedMsgs (inputMessageName input) p
 
-findOutputParam ps output = do p <- findM (paramsSearch $ nameLocalName $ outputMessageType output) ps "Error looking for output parameters"
+findOutputParam ps output = do p <- findM (messageSearch $ nameLocalName $ outputMessageType output) ps "Error looking for output parameters"
                                return $ NamedMsgs (outputMessageName output) p
 
 findFunc fs op = findM (funcSearch op) fs "Error looking for function"
@@ -124,12 +137,4 @@ convertPrimitiveType "float" = return WSFloat
 convertPrimitiveType "void" = return WSVoid
 convertPrimitiveType "boolean" = return WSBoolean
 convertPrimitiveType st = throwM . throwCustomException $ "Unknown primitive type: " ++ st
-
-buildModel :: (MonadThrow m) => Reader WSDL (m WSAbstraction)
-buildModel = do servs <- getServices
-                ts <- getParams
-                ns <- asks targetNamespace
-                return $ do servs' <- servs
-                            ts' <- ts
-                            return $ WSAbstraction servs' ts' ns
 

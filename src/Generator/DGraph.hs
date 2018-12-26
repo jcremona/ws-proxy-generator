@@ -5,6 +5,13 @@ import Data.Array
 
 type Node = Vertex
 
+-----------------------------------------------------------------------------
+-- Una implementación de grafos que utiliza Data.Graph. 
+-- Exporta una función que permite realizar un ordenamiento topológico.
+-- https://stackoverflow.com/a/8936096
+-----------------------------------------------------------------------------
+
+
 makeGraph :: [(Node, [Node])] -> Graph
 makeGraph list =
   array (minimum nodes, maximum nodes) list
@@ -33,13 +40,4 @@ reachableFromAny graph node =
 
 -- reachable Graph node retorna los nodos a los que puede se llegar desde node mediante un camino (incluyendo el nodo node)
 -- para cada nodo v, se calcula reachable sobre todos sus vecinos, y se concatenan los resultados en una lista. Si v aparece en esa lista, tenemos un ciclo 
-
---(myGraph,vertexToNode,keyToVertex) = graphFromEdges [
---      ("node4",4,[8]),     -- the first component can be of any type
---      ("node8",8,[4]),
---      ("node7",7,[4]),
---      ("node5",5,[7,1]),
---      ("node1",1,[4])
---   ]
-
 

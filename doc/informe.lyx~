@@ -7,6 +7,7 @@
 \textclass article
 \begin_preamble
 \usepackage{xcolor}
+\usepackage{forest}
 \end_preamble
 \use_default_options true
 \maintain_unincluded_children false
@@ -488,20 +489,692 @@ sayHello
 Organización de los archivos
 \end_layout
 
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{forest}
+\end_layout
+
+\begin_layout Plain Layout
+
+  for tree={     font=
+\backslash
+ttfamily,     grow'=0,     child anchor=west,     parent anchor=south, 
+    anchor=west,     calign=first,     edge path={       
+\backslash
+noexpand
+\backslash
+path [draw, 
+\backslash
+forestoption{edge}]       (!u.south west) +(7.5pt,0) |- node[fill,inner sep=1.25pt]
+ {} (.child anchor)
+\backslash
+forestoption{edge label};     },     before typesetting nodes={       if
+ n=1         {insert before={[,phantom]}}         {}     },     fit=band,
+     before computing xy={l=15pt},   } 
+\end_layout
+
+\begin_layout Plain Layout
+
+[ws-proxy-generator   
+\end_layout
+
+\begin_layout Plain Layout
+
+	[src  [Callws.hs]  [Main.hs] 
+\end_layout
+
+\begin_layout Plain Layout
+
+		[Common [Exception.hs] [Util.hs]]     
+\end_layout
+
+\begin_layout Plain Layout
+
+		[Generator [DGraph.hs] [HaskellGen.hs] [StReader.hs] [TypeChecking.hs]]  
+   
+\end_layout
+
+\begin_layout Plain Layout
+
+		[Model [CodeWriting.hs] [HaskellTranslate.hs] [ProxyModel.hs] [WSDL2Model.hs]]
+ 
+\end_layout
+
+\begin_layout Plain Layout
+
+		[Text [XML [WSDL [Parser.hs] [Types.hs]] ]]  ]  [doc] [test]  ]
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{forest} 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A continuación, una breve descripción de los módulos, en el orden en el
+ que aparecen en el diagrama.
+\end_layout
+
+\begin_layout Subsection
+Callws
+\end_layout
+
+\begin_layout Standard
+Módulo necesario e indispensable para la ejecución del código generado.
+ Inspirado en 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-1"
+literal "false"
+
+\end_inset
+
+.
+ Se encarga de realizar la comunicación propiamente dicha con el servicio
+ web: crea el mensaje XML, lo empaqueta en un mensaje HTTP, y envía el mensaje
+ mediante un POST request de HTTP.
+\end_layout
+
+\begin_layout Subsection
+Main
+\end_layout
+
+\begin_layout Standard
+Main es el módulo principal del proyecto.
+ Aquí se decide que instancia de MonadThrow se utilizará, así como también
+ el lenguaje 
+\emph on
+target, 
+\emph default
+cuya representación deberá implementar las clases
+\emph on
+ 
+\emph default
+CodeWriting y TranslateFromModel (ver siguiente sección)
+\emph on
+.
+ 
+\emph default
+En particular, el lenguaje 
+\emph on
+target
+\emph default
+ elegido es Haskell, y la instancia de MonadThrow es Either SomeException.
+\end_layout
+
+\begin_layout Subsection
+Common.Exception
+\end_layout
+
+\begin_layout Standard
+Define una instancia de Exception que se utilizará para el manejo de errores.
+\end_layout
+
+\begin_layout Subsection
+Common.Util
+\end_layout
+
+\begin_layout Standard
+Provee funciones útiles para el manejo de String.
+\end_layout
+
+\begin_layout Subsection
+Generator.DGraph
+\end_layout
+
+\begin_layout Standard
+Provee una implementación de grafos dirigidos junto a un método para realizar
+ una ordenación topológica.
+\end_layout
+
+\begin_layout Subsection
+Generator.HaskellGen
+\end_layout
+
+\begin_layout Standard
+El módulo más importante relacionado con la generación de código.
+ Es dependiente del lenguaje 
+\emph on
+target
+\emph default
+ elegido.
+\end_layout
+
+\begin_layout Subsection
+Generator.StReader
+\end_layout
+
+\begin_layout Standard
+Define una mónada, en la siguiente sección se explica con más detalle.
+\end_layout
+
+\begin_layout Subsection
+Generator.TypeChecking
+\end_layout
+
+\begin_layout Standard
+También es un módulo dependiente del lenguaje 
+\emph on
+target
+\emph default
+, en este caso, define expresiones a utilizar en las funciones generadas,
+ y provee un chequeo de tipos.
+\end_layout
+
+\begin_layout Subsection
+Model.CodeWriting
+\end_layout
+
+\begin_layout Standard
+Define las clases CodeWriting y TranslateFromModel.
+ En la siguiente sección se explican con más detalle.
+\end_layout
+
+\begin_layout Subsection
+Model.HaskellTranslate
+\end_layout
+
+\begin_layout Standard
+Módulo dependiente del lenguaje 
+\emph on
+target.
+ 
+\emph default
+Se encarga de realizar la traducción de modelo intermedio a una representación
+ de código Haskell.
+\end_layout
+
+\begin_layout Subsection
+Model.ProxyModel
+\end_layout
+
+\begin_layout Standard
+Define un tipo de datos para representar el modelo intermedio (WSAbstraction).
+\end_layout
+
+\begin_layout Subsection
+Model.WSDL2Model
+\end_layout
+
+\begin_layout Standard
+Implementa la traducción de un documento WSDL ya parseado al modelo intermedio.
+\end_layout
+
+\begin_layout Subsection
+Text.XML.WSDL.Parser
+\end_layout
+
+\begin_layout Standard
+Implementa el parser de WSDL 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-2"
+literal "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Text.XML.WSDL.Types
+\end_layout
+
+\begin_layout Standard
+Define el tipo de datos WSDL, utilizado por el parser de WSDL 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-2"
+literal "false"
+
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Section
 Decisiones de diseño
 \end_layout
 
-\begin_layout Standard
-Text -> WSDL
+\begin_layout Subsection
+Etapas
+\end_layout
+
+\begin_layout Subsubsection
+Parser para el WSDL
 \end_layout
 
 \begin_layout Standard
-WSDL -> Model (WSAbstraction)
+La implementación del parser del documento WSDL se hace, fundamentalmente,
+ mediante la utilización de la mónada Conduit.
+ Este tipo de datos provee facilidades para el manejo del flujo de datos.
+ El módulo en el cual se implementa dicho parser es Text.XML.WSDL.Parser.
+\end_layout
+
+\begin_layout Subsubsection
+Construcción del modelo intermedio (WSAbstraction)
 \end_layout
 
 \begin_layout Standard
-Model -> Module
+Una vez parseado el documento WSDL, se procede a crear el modelo intermedio.
+ En esta instancia, se chequea que el documento WSDL sea consistente, en
+ el sentido de que los nombres referenciados desde distintos elementos del
+ documento WSDL coincidan.
+ El resultado es un modelo intermedio, el cual es una representación de
+ las distintas abstracciones que define el documento WSDL, como lo son las
+ interfaces (
+\emph on
+portType
+\emph default
+) y las funciones (
+\emph on
+operation
+\emph default
+).
+ Este modelo es bastante similar al objeto obtenido en la etapa previa,
+ excepto que aquí se realizan los chequeos mencionados anteriormente, y
+ que el model obtenido ya está listo para ser traducido al lenguaje 
+\emph on
+target 
+\emph default
+en las etapas subsiguientes.
+ Básicamente, se obtiene una representación independiente del lenguaje para
+ el que se va a generar el código final.
+ Esto permite desacoplar esta etapa de las siguientes, y minimizar los cambios
+ si se quiere generar código para otro lenguaje.
+ El módulo en el cual se implementa lo mencionado en esta subsección es
+ Model.WSDL2Model.
+\end_layout
+
+\begin_layout Subsubsection
+Traducción del modelo intermedio al lenguaje 
+\emph on
+target
+\end_layout
+
+\begin_layout Standard
+Llamamos lenguaje 
+\emph on
+target
+\emph default
+ al lenguaje para el que se genera el código final.
+ En nuestro caso, el lenguaje 
+\emph on
+target
+\emph default
+ es Haskell.
+ En esta etapa se distinguen dos clases: CodeWriting y TranslateFromModel.
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=Haskell,numbers=left,numberstyle={\scriptsize},basicstyle={\footnotesize\sffamily},breaklines=true,showstringspaces=false,tabsize=4,extendedchars=true,frame=tb"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+class CodeWriting a where 
+\end_layout
+
+\begin_layout Plain Layout
+
+	writeCode :: a -> IO ()
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+class TranslateFromModel t where 
+\end_layout
+
+\begin_layout Plain Layout
+
+	buildFromModel :: WSAbstraction -> t 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Estas clases exigen que para el lenguaje 
+\emph on
+target
+\emph default
+ se implementen dos funciones: 
+\end_layout
+
+\begin_layout Itemize
+writeCode: permite escribir código para el lenguaje generado en archivos.
+\end_layout
+
+\begin_layout Itemize
+buildFromModel: implementa la traducción del modelo intermedio a (una abstracció
+n de) lenguaje 
+\emph on
+target.
+\end_layout
+
+\begin_layout Standard
+Específicamente para Haskell, se definen las siguientes abstracciones (más
+ adelante se explica cómo se definen Expr y Type):
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=Haskell,numbers=left,numberstyle={\scriptsize},basicstyle={\footnotesize\sffamily},breaklines=true,showstringspaces=false,tabsize=4,extendedchars=true,frame=tb"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+data DataType = DataType
+\end_layout
+
+\begin_layout Plain Layout
+
+               { typeName :: String
+\end_layout
+
+\begin_layout Plain Layout
+
+               , fields   :: [(String, Type)]
+\end_layout
+
+\begin_layout Plain Layout
+
+               } deriving Show
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+data DefFun = DefFun
+\end_layout
+
+\begin_layout Plain Layout
+
+            { funname       :: String
+\end_layout
+
+\begin_layout Plain Layout
+
+            , funparameters :: [(String, Type)]
+\end_layout
+
+\begin_layout Plain Layout
+
+            , body          :: Expr
+\end_layout
+
+\begin_layout Plain Layout
+
+            , funcType      :: Type
+\end_layout
+
+\begin_layout Plain Layout
+
+            } deriving Show
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+data Module = Module
+\end_layout
+
+\begin_layout Plain Layout
+
+            { moduleName :: String
+\end_layout
+
+\begin_layout Plain Layout
+
+            , functions  :: [(DefFun, DefFun)]
+\end_layout
+
+\begin_layout Plain Layout
+
+            , dataTypes  :: [DataType]
+\end_layout
+
+\begin_layout Plain Layout
+
+            } deriving Show  
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+DataType permite definir records, mientras que DefFun se utiliza para definir
+ funciones.
+ Mediante buildFromModel, se traduce del código intermedio a una estructura
+ formada a partir de DataType, DefFun y Module.
+\end_layout
+
+\begin_layout Standard
+NOTA: cada Function definida en el modelo intermedio se traduce en dos DefFun
+ (de ahí el tipo de functions en Module).
+ Una función principal, que invoca a invokeWS, que es quien realiza la comunicac
+ión propiamente dicha con el web service y que está definido en Callws.
+ Y una función auxiliar para leer la respuesta obtenida (lista de Strings),
+ y mapearla al record correspondiente.
+ Luego en HaskellGen, en la generación de código, se genera "artificialmente"
+ una tercera función que invoca al par.
+\end_layout
+
+\begin_layout Subsubsection
+Expresiones y Tipado
+\end_layout
+
+\begin_layout Standard
+En el módulo TypeChecking se define un AST para representar código Haskell.
+ La gramática presenta limitaciones en cuanto al código que se puede generar
+ pero tiene la suficiente expresividad para cumplir con los requerimientos
+ de este proyecto.
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=Haskell,numbers=left,numberstyle={\scriptsize},basicstyle={\footnotesize\sffamily},breaklines=true,showstringspaces=false,tabsize=4,extendedchars=true,frame=tb"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+data Expr = Call String [Expr] 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | Free String 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | StringValue String 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | ListValue [Expr] 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TupleValue (Expr,Expr) 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | IntValue Int deriving Show
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+No se provee soporte para:
+\end_layout
+
+\begin_layout Itemize
+definir funciones recursivas
+\end_layout
+
+\begin_layout Itemize
+definir funciones mutuamente recursivas
+\end_layout
+
+\begin_layout Standard
+Además, como puede verse, el AST no permite definir guardas ni estructuras
+ condicionales
+\end_layout
+
+\begin_layout Standard
+Adicionalmente, se define un chequeo de tipos.
+ Para esto, introducimos Type.
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=Haskell,numbers=left,numberstyle={\scriptsize},basicstyle={\footnotesize\sffamily},breaklines=true,showstringspaces=false,tabsize=4,extendedchars=true,frame=tb"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+data Type = Func Type Type 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TList Type 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TTuple (Type, Type) 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | IOMonad Type 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | UserDefined String 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TInt 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TString 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TDouble 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TLong 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TChar 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TFloat 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TVoid 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  | TBool 
+\end_layout
+
+\begin_layout Plain Layout
+
+		  deriving (Show)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Como se puede ver, se definen tipos primitivos para los que no se pueden
+ generar valores mediante Expr.
+ Estos tipos primitivos se utilizan para mapear directamente los tipos primitivo
+s que permite expresar el lenguaje WSDL.
+ Las funciones generadas reciben records como parámetros, cuyos campos son
+ valores de tipos primitivos.
+ Durante esta etapa se utiliza la mónada StReader definida más adelante.
+\end_layout
+
+\begin_layout Subsubsection
+Generación de código
+\end_layout
+
+\begin_layout Standard
+Finalmente, tenemos la etapa de generación del código Haskell.
+ Para esto, se implementa la función writeCode mencionada anteriormente.
+ En esta implementación utilizamos el tipo de datos Doc 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-4"
+literal "false"
+
+\end_inset
+
+ para crear un 
+\emph on
+pretty printer
+\emph default
+.
 \end_layout
 
 \begin_layout Subsection
@@ -560,16 +1233,19 @@ La mónada StReader permite llevar un entorno de la misma forma que la mónada
 \begin_layout Standard
 Esta mónada se utiliza durante la generación de código, tanto para el análisis
  sintáctico como para el chequeo de tipos.
+ Al tipar una función, el estado se utiliza para llevar las funciones tipadas
+ hasta el momento, mientras que en el entorno se almacenan los parámetros
+ de la función junto a su tipo.
 \end_layout
 
 \begin_layout Subsection
-DGraph y sort topológico
+DGraph y ordenamiento topológico
 \end_layout
 
 \begin_layout Standard
 El módulo DGraph está pensado para ser utilizado durante la etapa de tipado.
- Las funciones que se pueden definir mediante el módulo Gen pueden llamar
- a otras funciones definidas por el usuario.
+ Las funciones que se pueden definir mediante el módulo HaskellGen pueden
+ llamar a otras funciones definidas por el usuario.
  Durante el tipado, se lleva una lista (estado de la mónada StReader) con
  las funciones ya tipadas (junto a su tipo), añadiendo a esta lista una
  función cada vez que se procesa y determina el tipo de la misma.
@@ -581,9 +1257,207 @@ El módulo DGraph está pensado para ser utilizado durante la etapa de tipado.
 
 \begin_layout Standard
 Para cumplir con este requerimiento, se decidió que se implemente un grafo
- dirigido cuyos nodos son las funciones definidas.
+ dirigido acíclico cuyos nodos son las funciones definidas.
  Si en el cuerpo de una función f, aparece una llamada a una función g,
  en el grafo hay una arista de g a f.
+ Dado que no se permiten funciones mutuamente recursivas nos asegura que
+ el grafo no contendrá ciclos.
+ Después de construir el grafo, se realiza un ordenamiento (
+\emph on
+sort
+\emph default
+) topológico de sus nodos.
+ Esto no es más que un ordenamiento lineal de los nodos, tal que si existe
+ una arista del nodo 
+\emph on
+u
+\emph default
+ al nodo 
+\emph on
+v, 
+\emph default
+el nodo 
+\emph on
+u
+\emph default
+ aparece antes que 
+\emph on
+v
+\emph default
+ en la lista ordenada.
+ Luego, las funciones se van tipando en el orden en el que aparecen en dicha
+ lista.
+\end_layout
+
+\begin_layout Section
+Bibliografía
+\end_layout
+
+\begin_layout Standard
+Este proyecto está inspirado fundamentalmente en 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-1"
+literal "false"
+
+\end_inset
+
+, el cual implementa un generador similar pero está desarrollado parte en
+ Haskell y parte en C#.
+ El módulo Callws fue copiado de este proyecto, aunque se le realizaron
+ modificaciones.
+\end_layout
+
+\begin_layout Standard
+El parser de WSDL fue obtenido de 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-2"
+literal "false"
+
+\end_inset
+
+.
+ Se actualizó la llamada a ciertos métodos ya deprecados, en favor de sus
+ nuevas versiones.
+ Además, se lo modificó para cumplir con nuevos requerimientos.
+ Además inspiró el uso de MonadThrow en el resto del proyecto.
+\end_layout
+
+\begin_layout Standard
+La implementación del grafo fue obtenida de 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-3"
+literal "false"
+
+\end_inset
+
+.
+ Lo primordial en esta implementación era tener una forma de detectar ciclos.
+\end_layout
+
+\begin_layout Standard
+El pretty printer utiliza 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-4"
+literal "false"
+
+\end_inset
+
+ para su implementación.
+\end_layout
+
+\begin_layout Standard
+El diagrama de estructura de carpetas del presente informe fue copiado de
+ 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-53"
+literal "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-1"
+literal "false"
+
+\end_inset
+
+The HWSProxyGen Project.
+ 
+\begin_inset CommandInset href
+LatexCommand href
+target "http://www.cin.ufpe.br/~haskell/hwsproxygen/"
+literal "true"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-2"
+literal "false"
+
+\end_inset
+
+wsdl: WSDL parsing in Haskell.
+ 
+\begin_inset CommandInset href
+LatexCommand href
+target "http://hackage.haskell.org/package/wsdl-0.1.0.1"
+literal "true"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-3"
+
+\end_inset
+
+Detecting cycles of a graph(maybe directed or undirected) in Haskell.
+ 
+\begin_inset CommandInset href
+LatexCommand href
+name "Respuesta en StackOverflow"
+target "https://stackoverflow.com/a/8936096"
+literal "true"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-4"
+
+\end_inset
+
+prettyprinter: A modern, easy to use, well-documented, extensible pretty-printer.
+ 
+\begin_inset CommandInset href
+LatexCommand href
+target "http://hackage.haskell.org/package/prettyprinter"
+literal "true"
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-53"
+
+\end_inset
+
+Making a (simple) directory tree.
+ 
+\begin_inset CommandInset href
+LatexCommand href
+target "https://tex.stackexchange.com/a/270761"
+literal "true"
+
+\end_inset
+
+
 \end_layout
 
 \end_body

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
-module Model.Translate (HaskellCode(..)) where
+module Model.HaskellTranslate (HaskellCode) where
 
-import Generator.Gen
+import Generator.HaskellGen
 import Generator.TypeChecking
 import Model.ProxyModel
 import Model.CodeWriting
@@ -12,6 +12,12 @@ import Data.Text hiding (map, head,zip)
 import Data.XML.Types
 import Network.URI
 import Control.Monad.Catch (MonadThrow, throwM)
+
+------------------------------------------------------------------
+-- Los módulos HaskellGen y HaskellTranslate son dependientes
+-- del lenguaje target elegido, en nuestro caso, Haskell.
+-- Nos vemos forzados a implementar writeCode y buildFromModel. 
+------------------------------------------------------------------
 
 data HaskellCode = HaskellCode { modules :: [[Module]]} 
 
@@ -32,9 +38,19 @@ haskellModules model = do nspace <- maybeToMonadThrow $ namespace model
                           return $ HaskellCode modules
                         where maybeToMonadThrow = maybe (throwM $ throwCustomException "Undefined Namespace") return
 
-portsToModules :: (MonadThrow m) => URI -> [Params] -> [(Port, URI)] -> m [Module]
+portsToModules :: (MonadThrow m) => URI -> [Message] -> [(Port, URI)] -> m [Module]
 portsToModules namespace params = mapM (\(port, uri) -> runGenerationModule (unpack $ bName port) (bindingsToFunDefinitions namespace uri $ protocolBinding port) datatypes)
-                                 where datatypes = map params2DataType params
+                                 where datatypes = map message2DataType params
+
+
+--------------------------------------------------------------------------------
+-- Por cada Function definida en el modelo intermedio, se definen dos DefFun
+-- Una función principal, que invoca a invokeWS, que es quien realiza 
+-- la comunicación con el web service y está definido en Callws.
+-- Y una función auxiliar para leer la respuesta obtenida (lista de Strings),
+-- y mapearla al record correspondiente. Luego en HaskellGen, en la generación
+-- de código, se genera "artificialmente" una tercera función que invoca al par.
+--------------------------------------------------------------------------------
 
 bindingsToFunDefinitions :: URI -> URI -> [ProtocolBinding] -> [(DefFun, DefFun)]
 bindingsToFunDefinitions namespace address = map ((\fun -> (toFunctionDefinition namespace address fun, auxiliarFunctionDefinition fun)) . pFunction)
@@ -47,7 +63,7 @@ toFunctionDefinition  namespace address (Function functionName params funcType _
                                                                                        listExpr $ map (\(c,t) -> tupleExpr(stringExpr c, convertToString t $ callExpr c [freeVbleExpr "dt"])) $ fields dt, 
                                                                                        stringExpr return, 
                                                                                        listExpr responseParameterNames]) (functionType inputType $ ioMonadType $ listType stringType)
-                                                           where dt = params2DataType $ messageType params
+                                                           where dt = message2DataType $ messageType params
                                                                  fname = unpack functionName
                                                                  inputType = userDefinedType . typeName $ dt
                                                                  return = unpack . wrapperName . messageType $ funcType
@@ -57,15 +73,15 @@ toFunctionDefinition  namespace address (Function functionName params funcType _
 auxiliarFunctionDefinition (Function functionName params funcType _) = defineFunction ("buildOutput_" ++ fname) [("xs", listType stringType)]
                                                                         (callExpr (typeName retDataType) args) (functionType (listType stringType) (userDefinedType $ typeName retDataType))
                                                            where fname = unpack functionName
-                                                                 retDataType = params2DataType $ messageType funcType                                        
+                                                                 retDataType = message2DataType $ messageType funcType                                        
                                                                  args = [convertFromString t $ callExpr "takeString" [freeVbleExpr "xs", intExpr i] | (i,(c,t))  <- enumerate $ fields retDataType]
                                                                  enumerate = zip [0..]
 
  -- FIXME el param dt no puede ser igual a ninguna funcion??
 
 
-params2DataType :: Params -> DataType
-params2DataType (Params name parameters) = datatype (upperFirstChar . unpack $ name) $ map parameter2Constructor parameters 
+message2DataType :: Message -> DataType
+message2DataType (Message name parameters) = datatype (upperFirstChar . unpack $ name) $ map parameter2Constructor parameters 
 
 parameter2Constructor :: Parameter -> (String, Type)
 parameter2Constructor (Parameter (Name nl ns pr) ty) = (lowerFirstChar . unpack $ nl, wsType2Type ty)

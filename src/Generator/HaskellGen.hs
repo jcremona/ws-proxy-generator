@@ -1,4 +1,4 @@
-module Generator.Gen (write, Module, DefFun, DataType, runGenerationModule, defineFunction, datatype, typeName, fields, moduleName) where
+module Generator.HaskellGen (write, Module, DefFun, DataType, runGenerationModule, defineFunction, datatype, typeName, fields, moduleName) where
 
 import Generator.StReader
 import Common.Util
@@ -11,7 +11,15 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 import Data.Text.IO
 import Prelude hiding (writeFile)
+---------------------------------------------------------------------------------
+-- El módulo que se encarga de la generación de código Haskell
+---------------------------------------------------------------------------------
 
+
+
+---------------------------------------------------------------------------------
+-- Permite definir records, funciones, y agruparlos en un módulo Haskell 
+---------------------------------------------------------------------------------
 data DataType = DataType 
               { typeName :: String
               , fields   :: [(String, Type)]
@@ -26,7 +34,7 @@ data DefFun = DefFun
 
 data Module = Module
             { moduleName :: String
-            , functions  :: [(DefFun, DefFun)]
+            , functions  :: [(DefFun, DefFun)] -- Por cada Function del modelo intermedio, se definen dos DefFun (ver HaskellTranslate)
             , dataTypes  :: [DataType]
             } deriving Show
 
@@ -40,10 +48,21 @@ defineModule = Module
 write m = writeFile ("./" ++ moduleName m ++ ".hs") $ (renderStrict . layoutPretty defaultLayoutOptions) $ prettyPrinterModule m
 
 
--- ************************************************************************************************************************************* --
--- *****************************************               PRETTY PRINTER               ************************************************ --
+-----------------------------------------
+-- PRETTY PRINTER
+-----------------------------------------
 vspace = hardline <> hardline
 
+---------------------------------------------------------------------------------------
+-- prettyPrinterModule: Genera el código para un Module dado.
+-- En HaskellTranslate, vimos que para cada Function se definen dos funciones.
+-- Este método es más que un pretty printer, ya que para cada par de estas funciones,
+-- genera una tercera, que invoca al par mencionado. Esto se hace así porque nuestro
+-- AST (que representa la expresiones Haskell que podemos representar en una función)
+-- no provee soporte para mónadas (notación do, bindings, return). Además hace un renombre,
+-- de modo tal que la función principal (generada "artificialmente" aquí)
+-- lleve el mismo nombre con el que fue definida en el WSDL.
+---------------------------------------------------------------------------------------
 prettyPrinterModule :: Module -> Doc ann
 prettyPrinterModule (Module name funcs dts) = pretty "module" <+> pretty name <+> pretty "where" 
                                              <> vspace 
@@ -71,8 +90,10 @@ prettyPrinterParam :: [(String, Type)] -> Doc ann
 prettyPrinterParam xs = sep $ map (pretty . fst) xs
 
 
--- ************************************************************************************************************************************* --
--- ****************************************          TYPE CHECKING           *********************************************************** --
+-----------------------------------------
+-- TYPE CHECKING
+-- Llama al módulo TypeChecking.
+-----------------------------------------
 
 typeChecking (DefFun name params body funcType) = do bodyType <- local (const params) $ typeCheckingExpr body
                                                      funcs <- get
@@ -82,8 +103,9 @@ typeChecking (DefFun name params body funcType) = do bodyType <- local (const pa
                                                       else throwCustomExceptionM $ "Couldn't match type of the function " ++ name ++ " with the type of the body"
 
 
--- ************************************************************************************************************************************* --
--- ****************************************          SYNTAX ANALYZER         *********************************************************** --
+-----------------------------------------
+-- SYNTAX ANALYZER 
+-----------------------------------------
 
 reservedWords = ["case","class","data","default","deriving","do","else","forall"
   ,"if","import","in","infix","infixl","infixr","instance","let","module"
@@ -131,8 +153,13 @@ analyzeDataTypesSyntax dts = do mapM dataTypeSyntaxAnalyzer dts
                                 guardT (allDifferent $ map typeName dts) "Type names must have different names" ()
 
 
--- ************************************************************************************************************************************* --
--- ****************************************             BUILT-IN FUNCTIONS         ***************************************************** --
+-------------------------------------------------------------
+-- BUILT-IN FUNCTIONS
+-- Signature de las funciones 
+-- que se definen en el módulo Callws.hs
+-- y que se utilizarán en "runtime" (cuando
+-- se invoque el código generado.
+-------------------------------------------------------------
 
 showIntType = functionType intType stringType
 showDoubleType = functionType doubleType stringType
@@ -157,22 +184,35 @@ callWSType = functionType stringType $ functionType stringType $ functionType st
 builtInFunctions = [("invokeWS",callWSType),("showInt",showIntType),("showDouble",showDoubleType),("showLong",showLongType),("showChar",showCharType),("showFloat",showFloatType),("showBool",showBoolType),("showVoid",showVoidType),("readInt",readIntType),("readDouble",readDoubleType),("readLong",readLongType),("readChar",readCharType),("readFloat",readFloatType),("readBool",readBoolType),("readVoid",readVoidType),("takeString",takeStringType)]
 
 
--- ************************************************************************************************************************************* --
--- ************************************************************************************************************************************* --
+-------------------------------------------
+-------------------------------------------
  
+
+--------------------------------------------------------------
+-- runGenerationModule: Método que ejecuta las operaciones mónadicas (StReader)
+-- para generar los módulos Haskell.
+--------------------------------------------------------------
 runGenerationModule moduleName funcs dts = runStReader (buildModule moduleName funcs dts) builtInFunctions [] >>= return . fst
 
 analyze funcs dts = do externFuncs <- get
                        dtFuncs <- processDataTypes dts
                        put $ externFuncs ++ dtFuncs
                        processFunctions funcs (externFuncs ++ dtFuncs)
-                       get 
-                       
+                       get -- FIXME borrar?
+
+------------------------------------------------------------
+-- processFunctions: analiza la sintaxis de las funciones,
+-- construye un grafo dirigido, y realiza chequeo de tipos.
+------------------------------------------------------------
 processFunctions funcs externFuncs = do analyzeFuncSyntax funcs
                                         graph <- buildGraph funcs (map fst externFuncs)
                                         vs <- graphTopSort graph
                                         mapM (\v -> typeChecking (funcs !! v)) vs
 
+--------------------------------------------------------------------
+-- processDataTypes: analiza la sintaxis de los datatypes 
+-- definidos, y agrega los constructores a la lista de funciones.
+--------------------------------------------------------------------
 processDataTypes dts = do analyzeDataTypesSyntax dts
                           return $ (map constructor2Fun dts) ++ (dts >>= dtype2Fun) 
 
@@ -185,11 +225,19 @@ buildModule moduleName funcs dts = do analyze (flatten funcs) dts
                                       return $ Module (upperFirstChar moduleName) funcs dts
                                     where flatten = (>>= (\(a,b) -> [a,b]))
 
-buildGraph funcs externFuncs = do edges <- foldM (kkp nodes $ externFuncs) (initEdges $ length names) funcs
+--------------------------------------------------------------
+-- Operaciones de grafos. Llama al módulo DGraph
+--------------------------------------------------------------
+
+buildGraph funcs externFuncs = do edges <- foldM (makeEdges nodes $ externFuncs) (initEdges $ length names) funcs
                                   return $ makeGraph edges
                                where nodes = zip names [0..]   
                                      names = map funname funcs
 
+
+--------------------------------------------------------------
+-- graphTopSort: ordenamiento topológico
+--------------------------------------------------------------
 graphTopSort graph = do guardT (not $ cyclicGraph $ graph) "Graph error" ()
                         return $ topSort graph
                                        
@@ -197,15 +245,27 @@ initEdges :: Int -> [(Int, [Int])]
 initEdges 0 = []
 initEdges n = (n - 1, []) : initEdges (n - 1)
 
-kkp xs externFuncs ys fun = do node <- lookupT (funname fun) xs
-                               kexpr node ys . body $ fun
-                where kexpr n ys (Call_ name' exprs) = if elem name' $ paramFuncs ++ externFuncs then return ys else 
-                                                      (do dd <- lookupT name' xs
-                                                          return $ addT ys dd n)
-                      kexpr n ys (List_ exprs) = foldM (kexpr n) ys exprs  
-                      kexpr n ys (Tuple_ (e1,e2)) = do ys' <- kexpr n ys e1
-                                                       kexpr n ys' e2
-                      kexpr n ys _ = return ys
+
+--------------------------------------------------------------
+-- makeEdges: construye las aristas del grafo, 
+-- a partir de analizar los cuerpos de las funciones.
+-- Si encuentra una llamada a una función g en el cuerpo de una
+-- función f, agrega una arista de g a f.
+-- Las excepciones son llamadas a funciones externas, 
+-- o pasadas por parámetro.
+--------------------------------------------------------------
+makeEdges
+  :: (MonadThrow m, Eq a) =>
+     [(String, a)] -> [String] -> [(a, [a])] -> DefFun -> StReader m s e [(a, [a])]
+makeEdges nodes externFuncs edges fun = do node <- lookupT (funname fun) nodes
+                                           lookForCall node edges . body $ fun
+                where lookForCall n edges (Call_ name' exprs) = if elem name' $ paramFuncs ++ externFuncs then return edges else 
+                                                               (do dd <- lookupT name' nodes
+                                                                   return $ addT edges dd n)
+                      lookForCall n edges (List_ exprs) = foldM (lookForCall n) edges exprs  
+                      lookForCall n edges (Tuple_ (e1,e2)) = do edges' <- lookForCall n edges e1
+                                                                lookForCall n edges' e2
+                      lookForCall n edges _ = return edges
                       paramFuncs = map fst $ funparameters fun                 
 
 lookupT x [] = throwCustomExceptionM $ "Unable to find this key: " ++ x
@@ -218,12 +278,3 @@ addT [] a b = [(a, [b])]
 addT ((x,bs):ys) a b | x == a = [(x, b:bs)] ++ ys
                      | otherwise = (x,bs) : addT ys a b
 
-
---run2 :: [String]--([(String, Type)], [(String, Type)])
---run2 = f $ (runStReader $ analyze [func6, func5] []) [] []
---      where f (Left e) = [show e]
---            f (Right (s,_)) = map (\(n,t) -> n ++ " :: " ++ (show $ prettyPrinterType t)) s
-
---func5 = DefFun "len" [] (listExpr [callExpr "length" [listExpr []]]) (listType intType)
---func6 = DefFun "length" [("xs", listType intType)] (intExpr 2) typ2
---typ2 = functionType (listType intType) ( intType)

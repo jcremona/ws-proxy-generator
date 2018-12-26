@@ -6,6 +6,10 @@ import Control.Exception
 import Common.Exception
 import           Control.Monad.Catch          (MonadThrow, throwM)
 
+------------------------------------------------------------------------
+-- StReader: una mónada utilizada durante el chequeo de tipos
+------------------------------------------------------------------------
+
 data StReader m s e a = StReader { runStReader :: s -> e -> m (a,s) }
 
 instance MonadThrow m => Functor (StReader m s e) where

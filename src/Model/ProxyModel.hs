@@ -4,10 +4,14 @@ import Data.Text      (Text)
 import Data.XML.Types
 import Network.URI
 
+--------------------------------------------------------------
+-- Abstracción simplificada de los elementos de WSDL
+--------------------------------------------------------------
+
 
 data WSAbstraction = WSAbstraction 
                    { defServices :: [Service]
-                   , types    :: [Params]
+                   , types    :: [Message]
                    , namespace :: Maybe URI
                    } deriving Show
                    
@@ -27,7 +31,7 @@ data Function = Function
 
 data NamedMsgs = NamedMsgs
                { messageName :: Maybe Text
-               , messageType :: Params
+               , messageType :: Message
                } deriving Show
 
 data ProtocolBinding = ProtocolBinding
@@ -35,11 +39,12 @@ data ProtocolBinding = ProtocolBinding
                      , pFunction :: Function
                      } deriving Show
 
-data Params = Params
+data Message = Message
             { wrapperName :: Text
             , parameters :: [Parameter]
             } deriving Show
 
+-- FIXME rename to Part
 data Parameter = Parameter
                { parameterName :: Name
                , ttype         :: WSType 

@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
+--{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE RecordWildCards           #-}
@@ -208,8 +208,6 @@ parsePort = tagNS "port" (liftM2 (,) (requireAttr "name") (requireAttr "binding"
         xel <- many parseXElement
         return $ WSDLPort n (textToName b) (getAddress xel) xel)
          where getAddress xel = foldr (\el muri -> parseAddr el <|> muri) Nothing xel
-
---aa = [NodeElement (Element {elementName = Name {nameLocalName = "address", nameNamespace = Just "http://schemas.xmlsoap.org/wsdl/soap/", namePrefix = Just "soap"}, elementAttributes = [(Name {nameLocalName = "location", nameNamespace = Nothing, namePrefix = Nothing},[ContentText "http://www.examples.com/SayHello/"])], elementNodes = []})]
 
 parseAddr = (>>= parseURI . T.unpack) . readAddr 
 
