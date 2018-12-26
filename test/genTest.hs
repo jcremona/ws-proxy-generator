@@ -44,3 +44,16 @@
 
 --lt :: [Int] -> Int
 --lt = const 2
+
+
+--run2 :: [String]--([(String, Type)], [(String, Type)])
+--run2 = f $ (runStReader $ analyze [func6, func5] []) [] []
+--      where f (Left e) = [show e]
+--            f (Right (s,_)) = map (\(n,t) -> n ++ " :: " ++ (show $ prettyPrinterType t)) s
+
+--func5 = DefFun "len" [] (listExpr [callExpr "length" [listExpr []]]) (listType intType)
+--func6 = DefFun "length" [("xs", listType intType)] (intExpr 2) typ2
+--typ2 = functionType (listType intType) ( intType)
+
+
+--aa = [NodeElement (Element {elementName = Name {nameLocalName = "address", nameNamespace = Just "http://schemas.xmlsoap.org/wsdl/soap/", namePrefix = Just "soap"}, elementAttributes = [(Name {nameLocalName = "location", nameNamespace = Nothing, namePrefix = Nothing},[ContentText "http://www.examples.com/SayHello/"])], elementNodes = []})]
