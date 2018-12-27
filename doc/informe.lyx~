@@ -512,7 +512,7 @@ Por lo tanto, se pueden probar ambos servicios mediante:
 
 \begin_layout Standard
 \begin_inset listings
-lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+lstparams "language=bash,basicstyle={\small\ttfamily},breaklines=true,backgroundcolor={\color{lightgray}}"
 inline false
 status open
 
@@ -532,7 +532,7 @@ stack exec ws-proxy-generator http://soapsamples.herokuapp.com/ws/math?wsdl
 
 \begin_layout Standard
 \begin_inset listings
-lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+lstparams "language=bash,basicstyle={\small\ttfamily},breaklines=true,backgroundcolor={\color{lightgray}}"
 inline false
 status open
 
