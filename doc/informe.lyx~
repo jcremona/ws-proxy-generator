@@ -337,7 +337,7 @@ git clone https://github.com/jcremona/ws-proxy-generator.git
 \end_layout
 
 \begin_layout Enumerate
-Ir a la carpeta src:
+Ir a la carpeta:
 \end_layout
 
 \begin_deeper
@@ -349,7 +349,7 @@ status open
 
 \begin_layout Plain Layout
 
-cd ws-proxy-generator/src
+cd ws-proxy-generator
 \end_layout
 
 \end_inset
@@ -359,7 +359,7 @@ cd ws-proxy-generator/src
 
 \end_deeper
 \begin_layout Enumerate
-Compilar:
+Construir con Stack:
 \end_layout
 
 \begin_deeper
@@ -371,7 +371,7 @@ status open
 
 \begin_layout Plain Layout
 
-ghc Main.hs
+stack build
 \end_layout
 
 \end_inset
@@ -387,13 +387,13 @@ Correr el programa con la URL de un documento WSDL como parámetro:
 \begin_deeper
 \begin_layout Standard
 \begin_inset listings
-lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+lstparams "language=bash,basicstyle={\small\ttfamily},breaklines=true,backgroundcolor={\color{lightgray}}"
 inline false
 status open
 
 \begin_layout Plain Layout
 
-./Main http://localhost:9999/ws/hello?wsdl
+stack exec ws-proxy-generator http://localhost:9999/ws/hello?wsdl
 \end_layout
 
 \end_inset
@@ -405,9 +405,13 @@ status open
 \begin_layout Enumerate
 Si todo funcionó correctamente, aparecerá el nombre del módulo generado,
  en nuestro caso HelloWorld.hs.
- Para utilizar este módulo es necesario hacerlo en el mismo directorio en
+ 
+\series bold
+Para utilizar este módulo es necesario hacerlo en el mismo directorio en
  el que se encuentre el módulo Callws.hs, ya que el código generado importa
- este módulo.
+ este módulo
+\series default
+.
 \end_layout
 
 \begin_layout Enumerate
@@ -485,6 +489,63 @@ sayHello
  Este método es el que consumirá el servicio web al ejecutarlo.
 \end_layout
 
+\begin_layout Subsection
+Servicios web para testear
+\end_layout
+
+\begin_layout Standard
+Para probar el programa se implementaron y deployaron dos servicios web.
+ A continuación se presentan las URLs de sus documentos WSDL.
+\end_layout
+
+\begin_layout Itemize
+Math: http://soapsamples.herokuapp.com/ws/math?wsdl
+\end_layout
+
+\begin_layout Itemize
+Hello: http://soapsamples.herokuapp.com/ws/hello?wsdl
+\end_layout
+
+\begin_layout Standard
+Por lo tanto, se pueden probar ambos servicios mediante:
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+stack exec ws-proxy-generator http://soapsamples.herokuapp.com/ws/math?wsdl
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+ó
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+stack exec ws-proxy-generator http://soapsamples.herokuapp.com/ws/hello?wsdl
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Organización de los archivos
 \end_layout
@@ -521,12 +582,17 @@ forestoption{edge label};     },     before typesetting nodes={       if
 
 \begin_layout Plain Layout
 
-[ws-proxy-generator   
+[ws-proxy-generator
 \end_layout
 
 \begin_layout Plain Layout
 
-	[src  [Callws.hs]  [Main.hs] 
+    [Callws.hs]  
+\end_layout
+
+\begin_layout Plain Layout
+
+	[src    [Main.hs] 
 \end_layout
 
 \begin_layout Plain Layout
