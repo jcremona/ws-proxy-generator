@@ -359,7 +359,7 @@ cd ws-proxy-generator
 
 \end_deeper
 \begin_layout Enumerate
-Construir con Stack:
+Instalar y construir con Stack:
 \end_layout
 
 \begin_deeper
@@ -368,6 +368,11 @@ Construir con Stack:
 lstparams "language=bash,basicstyle={\small\ttfamily},backgroundcolor={\color{lightgray}}"
 inline false
 status open
+
+\begin_layout Plain Layout
+
+stack setup
+\end_layout
 
 \begin_layout Plain Layout
 

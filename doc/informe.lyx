@@ -432,7 +432,7 @@ status open
 
 \begin_layout Plain Layout
 
-ghci HelloWorld.hs
+stack ghci HelloWorld.hs
 \end_layout
 
 \end_inset
