@@ -200,7 +200,7 @@ runGenerationModule moduleName funcs dts = runStReader (buildModule moduleName f
 analyze funcs dts = do externFuncs <- get
                        dtFuncs <- processDataTypes dts
                        put $ externFuncs ++ dtFuncs
-                       --processFunctions funcs (externFuncs ++ dtFuncs)
+                       processFunctions funcs --(externFuncs ++ dtFuncs)
                        --get -- FIXME borrar?
 
 ------------------------------------------------------------
